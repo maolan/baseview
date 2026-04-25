@@ -12,7 +12,7 @@ use crate::{MouseCursor, Size};
 use crate::macos as platform;
 #[cfg(target_os = "windows")]
 use crate::win as platform;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use crate::x11 as platform;
 
 pub struct WindowHandle {

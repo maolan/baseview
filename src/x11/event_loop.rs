@@ -67,6 +67,7 @@ impl EventLoop {
     // the same.
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
         use nix::poll::*;
+        use std::os::fd::BorrowedFd;
 
         let xcb_fd = self.window.xcb_connection.conn.as_raw_fd();
 
@@ -86,14 +87,15 @@ impl EventLoop {
                 last_frame = Instant::max(next_frame, Instant::now() - self.frame_interval);
             }
 
-            let mut fds = [PollFd::new(xcb_fd, PollFlags::POLLIN)];
+            let xcb_borrowed_fd = unsafe { BorrowedFd::borrow_raw(xcb_fd) };
+            let mut fds = [PollFd::new(xcb_borrowed_fd, PollFlags::POLLIN)];
 
             // Check for any events in the internal buffers
             // before going to sleep:
             self.drain_xcb_events()?;
 
             // FIXME: handle errors
-            poll(&mut fds, next_frame.duration_since(Instant::now()).subsec_millis() as i32)
+            poll(&mut fds, next_frame.duration_since(Instant::now()).subsec_millis() as u16)
                 .unwrap();
 
             if let Some(revents) = fds[0].revents() {

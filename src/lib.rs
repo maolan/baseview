@@ -2,7 +2,7 @@
 mod macos;
 #[cfg(target_os = "windows")]
 mod win;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod x11;
 
 mod clipboard;

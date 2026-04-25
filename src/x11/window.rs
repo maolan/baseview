@@ -319,11 +319,11 @@ impl<'a> Window<'a> {
     }
 
     pub fn has_focus(&mut self) -> bool {
-        unimplemented!()
+        true
     }
 
     pub fn focus(&mut self) {
-        unimplemented!()
+        // no-op
     }
 
     pub fn resize(&mut self, size: Size) {
