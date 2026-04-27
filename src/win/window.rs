@@ -510,7 +510,6 @@ pub(super) struct WindowState {
 
     // handle to the win32 keyboard hook
     // we don't need to read from this, just carry it around so the Drop impl can run
-    #[allow(dead_code)]
     kb_hook: KeyboardHookHandle,
 
     /// Tasks that should be executed at the end of `wnd_proc`. This is needed to avoid mutably
