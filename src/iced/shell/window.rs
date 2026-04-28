@@ -93,24 +93,18 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
             return;
         }
 
-        self.sender
-            .start_send(RuntimeEvent::Poll)
-            .expect("Send event");
+        self.sender.start_send(RuntimeEvent::Poll).expect("Send event");
 
         // Flush all messages. This will block until the instance is finished.
         let _ = self.instance.as_mut().poll(&mut self.runtime_context);
 
         // Poll subscriptions and send the corresponding messages.
         while let Ok(message) = self.runtime_rx.try_recv() {
-            self.sender
-                .start_send(RuntimeEvent::UserEvent(message))
-                .expect("Send event");
+            self.sender.start_send(RuntimeEvent::UserEvent(message)).expect("Send event");
         }
 
         // Send the event to the instance.
-        self.sender
-            .start_send(RuntimeEvent::OnFrame)
-            .expect("Send event");
+        self.sender.start_send(RuntimeEvent::OnFrame).expect("Send event");
 
         // Flush all messages. This will block until the instance is finished.
         let _ = self.instance.as_mut().poll(&mut self.runtime_context);
@@ -126,10 +120,8 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
         // Parent/embedded windows do not always gain keyboard focus
         // Automatically on click. Request focus explicitly before forwarding the event.
         #[cfg(not(target_os = "linux"))]
-        if matches!(
-            event,
-            Event::Mouse(crate::MouseEvent::ButtonPressed { .. })
-        ) && !window.has_focus()
+        if matches!(event, Event::Mouse(crate::MouseEvent::ButtonPressed { .. }))
+            && !window.has_focus()
         {
             window.focus();
         }
@@ -137,9 +129,7 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
         let status = if requests_exit(&event) {
             self.processed_close_signal = true;
 
-            self.sender
-                .start_send(RuntimeEvent::WillClose)
-                .expect("Send event");
+            self.sender.start_send(RuntimeEvent::WillClose).expect("Send event");
 
             // Flush all messages so the application receives the close event. This will block until the instance is finished.
             let _ = self.instance.as_mut().poll(&mut self.runtime_context);
@@ -147,9 +137,7 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
             EventStatus::Ignored
         } else {
             // Send the event to the instance.
-            self.sender
-                .start_send(RuntimeEvent::Baseview((event, true)))
-                .expect("Send event");
+            self.sender.start_send(RuntimeEvent::Baseview((event, true))).expect("Send event");
 
             // Flush all messages so the application receives the event. This will block until the instance is finished.
             let _ = self.instance.as_mut().poll(&mut self.runtime_context);
@@ -219,8 +207,7 @@ pub struct WindowHandle<Message: 'static + Send> {
 
 impl<Message: 'static + Send> WindowHandle<Message> {
     pub(crate) fn new(
-        bv_handle: crate::WindowHandle,
-        tx: mpsc::UnboundedSender<RuntimeEvent<Message>>,
+        bv_handle: crate::WindowHandle, tx: mpsc::UnboundedSender<RuntimeEvent<Message>>,
     ) -> Self {
         Self { bv_handle, tx }
     }
@@ -240,8 +227,7 @@ impl<Message: 'static + Send> WindowHandle<Message> {
     /// used to send events from the audio thread. Use a realtime-safe ring
     /// buffer instead.
     pub fn send_message(&mut self, msg: Message) -> Result<(), SendError> {
-        self.tx
-            .start_send(RuntimeEvent::UserEvent(iced_runtime::Action::Output(msg)))
+        self.tx.start_send(RuntimeEvent::UserEvent(iced_runtime::Action::Output(msg)))
     }
 
     /// Signal the window to close.

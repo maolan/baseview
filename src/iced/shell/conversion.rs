@@ -12,18 +12,13 @@ use raw_window_handle::HasRawDisplayHandle;
 use raw_window_handle::HasRawWindowHandle;
 
 pub fn baseview_to_iced_events(
-    event: BaseEvent,
-    iced_events: &mut Vec<(iced_core::window::Id, IcedEvent)>,
-    iced_modifiers: &mut IcedModifiers,
-    ignore_non_modifier_keys: bool,
+    event: BaseEvent, iced_events: &mut Vec<(iced_core::window::Id, IcedEvent)>,
+    iced_modifiers: &mut IcedModifiers, ignore_non_modifier_keys: bool,
     window_id: iced_core::window::Id,
 ) {
     match event {
         BaseEvent::Mouse(mouse_event) => match mouse_event {
-            crate::MouseEvent::CursorMoved {
-                position,
-                modifiers,
-            } => {
+            crate::MouseEvent::CursorMoved { position, modifiers } => {
                 if let Some(event) = update_modifiers(iced_modifiers, modifiers) {
                     iced_events.push((window_id, event));
                 }
@@ -40,9 +35,9 @@ pub fn baseview_to_iced_events(
                 }
                 iced_events.push((
                     window_id,
-                    IcedEvent::Mouse(IcedMouseEvent::ButtonPressed(
-                        baseview_mouse_button_to_iced(button),
-                    )),
+                    IcedEvent::Mouse(IcedMouseEvent::ButtonPressed(baseview_mouse_button_to_iced(
+                        button,
+                    ))),
                 ));
             }
             crate::MouseEvent::ButtonReleased { button, modifiers } => {
@@ -171,34 +166,21 @@ pub fn baseview_to_iced_events(
 }
 
 fn update_modifiers(
-    iced_modifiers: &mut IcedModifiers,
-    baseview_modifiers: BaseviewModifiers,
+    iced_modifiers: &mut IcedModifiers, baseview_modifiers: BaseviewModifiers,
 ) -> Option<IcedEvent> {
     let mut new = IcedModifiers::default();
 
-    new.set(
-        IcedModifiers::ALT,
-        baseview_modifiers.contains(BaseviewModifiers::ALT),
-    );
-    new.set(
-        IcedModifiers::CTRL,
-        baseview_modifiers.contains(BaseviewModifiers::CONTROL),
-    );
-    new.set(
-        IcedModifiers::SHIFT,
-        baseview_modifiers.contains(BaseviewModifiers::SHIFT),
-    );
-    new.set(
-        IcedModifiers::LOGO,
-        baseview_modifiers.contains(BaseviewModifiers::META),
-    );
+    new.set(IcedModifiers::ALT, baseview_modifiers.contains(BaseviewModifiers::ALT));
+    new.set(IcedModifiers::CTRL, baseview_modifiers.contains(BaseviewModifiers::CONTROL));
+    new.set(IcedModifiers::SHIFT, baseview_modifiers.contains(BaseviewModifiers::SHIFT));
+    new.set(IcedModifiers::LOGO, baseview_modifiers.contains(BaseviewModifiers::META));
 
     if *iced_modifiers != new {
         *iced_modifiers = new;
 
-        Some(IcedEvent::Keyboard(
-            iced_runtime::core::keyboard::Event::ModifiersChanged(*iced_modifiers),
-        ))
+        Some(IcedEvent::Keyboard(iced_runtime::core::keyboard::Event::ModifiersChanged(
+            *iced_modifiers,
+        )))
     } else {
         None
     }
@@ -708,8 +690,8 @@ fn baseview_to_iced_keycode(
 pub fn convert_mouse_interaction(
     interaction: crate::iced::runtime::core::mouse::Interaction,
 ) -> crate::MouseCursor {
-    use crate::iced::runtime::core::mouse::Interaction as ICursor;
     use crate::MouseCursor as BCursor;
+    use crate::iced::runtime::core::mouse::Interaction as ICursor;
 
     match interaction {
         ICursor::None => BCursor::Default,

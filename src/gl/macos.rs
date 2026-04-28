@@ -14,7 +14,7 @@ use cocoa::appkit::{
     NSOpenGLPixelFormat, NSOpenGLProfileVersion3_2Core, NSOpenGLProfileVersion4_1Core,
     NSOpenGLProfileVersionLegacy, NSOpenGLView, NSView,
 };
-use cocoa::base::{id, nil, YES};
+use cocoa::base::{YES, id, nil};
 use cocoa::foundation::NSSize;
 
 use core_foundation::base::TCFType;

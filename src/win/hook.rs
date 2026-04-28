@@ -14,7 +14,7 @@ use winapi::{
         libloaderapi::GetModuleHandleW,
         processthreadsapi::GetCurrentThreadId,
         winuser::{
-            CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HC_ACTION, MSG, PM_REMOVE,
+            CallNextHookEx, HC_ACTION, MSG, PM_REMOVE, SetWindowsHookExW, UnhookWindowsHookEx,
             WH_GETMESSAGE, WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP,
             WM_USER,
         },

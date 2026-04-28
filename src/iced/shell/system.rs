@@ -9,11 +9,7 @@ pub fn system_information(graphics: compositor::Information) -> system::Informat
     let mut system = System::new_all();
     system.refresh_all();
 
-    let cpu_brand = system
-        .cpus()
-        .first()
-        .map(|cpu| cpu.brand().to_string())
-        .unwrap_or_default();
+    let cpu_brand = system.cpus().first().map(|cpu| cpu.brand().to_string()).unwrap_or_default();
 
     let memory_used = sysinfo::get_current_pid()
         .and_then(|pid| system.process(pid).ok_or("Process not found"))

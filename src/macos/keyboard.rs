@@ -297,11 +297,7 @@ impl KeyboardState {
                     let any_down = raw_mods.bits() & !self.last_mods.get().bits();
                     self.last_mods.set(raw_mods);
                     if is_modifier_code(code) {
-                        if any_down == 0 {
-                            KeyState::Up
-                        } else {
-                            KeyState::Down
-                        }
+                        if any_down == 0 { KeyState::Up } else { KeyState::Down }
                     } else {
                         // HandleFlagsChanged has some logic for this; it might
                         // happen when an app is deactivated by Command-Tab. In

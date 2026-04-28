@@ -50,9 +50,7 @@ pub struct PollSubNotifier {
 
 impl PollSubNotifier {
     pub fn new() -> Self {
-        Self {
-            notify: Arc::new(AtomicBool::new(true)),
-        }
+        Self { notify: Arc::new(AtomicBool::new(true)) }
     }
 
     pub fn notify(&self) {
@@ -112,9 +110,7 @@ pub fn poll_events() -> Subscription<()> {
 ///   will be called.
 /// * `build_program` - The function which builds the Iced program.
 pub fn open_blocking<P, B>(
-    settings: IcedBaseviewSettings,
-    notifier: PollSubNotifier,
-    build_program: B,
+    settings: IcedBaseviewSettings, notifier: PollSubNotifier, build_program: B,
 ) where
     P: Program + 'static,
     B: Send + 'static + FnOnce() -> P,
@@ -141,10 +137,7 @@ pub fn open_blocking<P, B>(
 ///   will be called.
 /// * `build_program` - The function which builds the Iced program.
 pub fn open_parented<W, P, B>(
-    parent: &W,
-    settings: IcedBaseviewSettings,
-    notifier: PollSubNotifier,
-    build_program: B,
+    parent: &W, settings: IcedBaseviewSettings, notifier: PollSubNotifier, build_program: B,
 ) -> WindowHandle<P::Message>
 where
     W: HasRawWindowHandle,
@@ -169,12 +162,9 @@ where
 
 /// Runs a [`Program`] with the provided settings.
 fn run_inner<P>(
-    window: &mut crate::Window<'_>,
-    settings: IcedBaseviewSettings,
-    program: P,
+    window: &mut crate::Window<'_>, settings: IcedBaseviewSettings, program: P,
     event_sender: mpsc::UnboundedSender<RuntimeEvent<P::Message>>,
-    event_receiver: mpsc::UnboundedReceiver<RuntimeEvent<P::Message>>,
-    notifier: PollSubNotifier,
+    event_receiver: mpsc::UnboundedReceiver<RuntimeEvent<P::Message>>, notifier: PollSubNotifier,
 ) -> Result<IcedWindowHandler<P>, Error>
 where
     P: Program + 'static,
@@ -231,13 +221,14 @@ where
     ));
 
     let window06 = crate::iced::shell::conversion::convert_window(window);
-    let mut compositor =
-        crate::iced::futures::executor::block_on(<P::Renderer as compositor::Default>::Compositor::new(
+    let mut compositor = crate::iced::futures::executor::block_on(
+        <P::Renderer as compositor::Default>::Compositor::new(
             graphics_settings,
             window06.clone(),
             window06.clone(),
             crate::iced::graphics::Shell::new(proxy.clone()),
-        ))?;
+        ),
+    )?;
     let surface = compositor.create_surface(
         window06.clone(),
         viewport.physical_size().width,
@@ -428,7 +419,9 @@ where
                         ..
                     } => {
                         window.queue.send(WindowCommand::SetCursorIcon(
-                            crate::iced::shell::conversion::convert_mouse_interaction(mouse_interaction),
+                            crate::iced::shell::conversion::convert_mouse_interaction(
+                                mouse_interaction,
+                            ),
                         ));
 
                         #[cfg(not(feature = "unconditional-rendering"))]
@@ -621,9 +614,7 @@ where
                 interface.as_mut().unwrap().draw(
                     &mut window.renderer,
                     window.state.theme(),
-                    &renderer::Style {
-                        text_color: window.state.text_color(),
-                    },
+                    &renderer::Style { text_color: window.state.text_color() },
                     cursor,
                 );
                 window.redraw_requested = false;
@@ -799,11 +790,8 @@ where
 
 /// Builds a window's [`UserInterface`] for the [`Program`].
 fn build_user_interface<'a, P: Program>(
-    program: &'a iced_program::Instance<P>,
-    cache: user_interface::Cache,
-    renderer: &mut P::Renderer,
-    size: Size,
-    id: iced_core::window::Id,
+    program: &'a iced_program::Instance<P>, cache: user_interface::Cache,
+    renderer: &mut P::Renderer, size: Size, id: iced_core::window::Id,
 ) -> UserInterface<'a, P::Message, P::Theme, P::Renderer>
 where
     P::Theme: theme::Base,
@@ -865,15 +853,11 @@ where
 }
 
 fn log_unsupported_window_action(command: &str) {
-    warn!(
-        "window::Action::{} is not supported in the baseview backend",
-        command
-    );
+    warn!("window::Action::{} is not supported in the baseview backend", command);
 }
 
 fn run_action<'a, P>(
-    action: Action<P::Message>,
-    program: &'a iced_program::Instance<P>,
+    action: Action<P::Message>, program: &'a iced_program::Instance<P>,
     runtime: &mut Runtime<P::Executor, Proxy<P::Message>, Action<P::Message>>,
     window: &mut InstanceWindow<P, <P::Renderer as compositor::Default>::Compositor>,
     buffers: (&mut Vec<P::Message>, &mut Clipboard),
@@ -1025,7 +1009,8 @@ fn run_action<'a, P>(
                     let graphics_info = window.compositor.information();
 
                     let _ = std::thread::spawn(move || {
-                        let information = crate::iced::shell::system::system_information(graphics_info);
+                        let information =
+                            crate::iced::shell::system::system_information(graphics_info);
 
                         let _ = _channel.send(information);
                     });

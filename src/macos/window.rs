@@ -8,10 +8,10 @@ use cocoa::appkit::{
     NSApp, NSApplication, NSApplicationActivationPolicyRegular, NSBackingStoreBuffered,
     NSPasteboard, NSView, NSWindow, NSWindowStyleMask,
 };
-use cocoa::base::{id, nil, BOOL, NO, YES};
+use cocoa::base::{BOOL, NO, YES, id, nil};
 use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
 use core_foundation::runloop::{
-    CFRunLoop, CFRunLoopTimer, CFRunLoopTimerContext, __CFRunLoopTimer, kCFRunLoopDefaultMode,
+    __CFRunLoopTimer, CFRunLoop, CFRunLoopTimer, CFRunLoopTimerContext, kCFRunLoopDefaultMode,
 };
 use keyboard_types::KeyboardEvent;
 use objc::class;
@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::keyboard::KeyboardState;
-use super::view::{create_view, BASEVIEW_STATE_IVAR};
+use super::view::{BASEVIEW_STATE_IVAR, create_view};
 
 #[cfg(feature = "opengl")]
 use crate::gl::{GlConfig, GlContext};

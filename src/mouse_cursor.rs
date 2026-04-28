@@ -42,4 +42,3 @@ pub enum MouseCursor {
     ColResize,
     RowResize,
 }
-

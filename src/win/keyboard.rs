@@ -28,13 +28,13 @@ use winapi::shared::minwindef::{HKL, INT, LPARAM, UINT, WPARAM};
 use winapi::shared::ntdef::SHORT;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
-    GetKeyState, GetKeyboardLayout, MapVirtualKeyExW, PeekMessageW, ToUnicodeEx, MAPVK_VK_TO_CHAR,
-    MAPVK_VSC_TO_VK_EX, MK_CONTROL, MK_SHIFT, PM_NOREMOVE, VK_ACCEPT, VK_ADD, VK_APPS, VK_ATTN,
+    GetKeyState, GetKeyboardLayout, MAPVK_VK_TO_CHAR, MAPVK_VSC_TO_VK_EX, MK_CONTROL, MK_SHIFT,
+    MapVirtualKeyExW, PM_NOREMOVE, PeekMessageW, ToUnicodeEx, VK_ACCEPT, VK_ADD, VK_APPS, VK_ATTN,
     VK_BACK, VK_BROWSER_BACK, VK_BROWSER_FAVORITES, VK_BROWSER_FORWARD, VK_BROWSER_HOME,
     VK_BROWSER_REFRESH, VK_BROWSER_SEARCH, VK_BROWSER_STOP, VK_CANCEL, VK_CAPITAL, VK_CLEAR,
     VK_CONTROL, VK_CONVERT, VK_CRSEL, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_EREOF,
-    VK_ESCAPE, VK_EXECUTE, VK_EXSEL, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5,
-    VK_F6, VK_F7, VK_F8, VK_F9, VK_FINAL, VK_HELP, VK_HOME, VK_INSERT, VK_JUNJA, VK_KANA, VK_KANJI,
+    VK_ESCAPE, VK_EXECUTE, VK_EXSEL, VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9,
+    VK_F10, VK_F11, VK_F12, VK_FINAL, VK_HELP, VK_HOME, VK_INSERT, VK_JUNJA, VK_KANA, VK_KANJI,
     VK_LAUNCH_APP1, VK_LAUNCH_APP2, VK_LAUNCH_MAIL, VK_LAUNCH_MEDIA_SELECT, VK_LCONTROL, VK_LEFT,
     VK_LMENU, VK_LSHIFT, VK_LWIN, VK_MEDIA_NEXT_TRACK, VK_MEDIA_PLAY_PAUSE, VK_MEDIA_PREV_TRACK,
     VK_MEDIA_STOP, VK_MENU, VK_MODECHANGE, VK_MULTIPLY, VK_NEXT, VK_NONCONVERT, VK_NUMLOCK,
@@ -441,7 +441,6 @@ impl KeyboardState {
     ) -> Option<KeyboardEvent> {
         match msg {
             WM_KEYDOWN | WM_SYSKEYDOWN => {
-                //println!("keydown wparam {:x} lparam {:x}", wparam, lparam);
                 let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
                 let vk = self.refine_vk(wparam as u8, scan_code);
                 if is_last_message(hwnd, msg, lparam) {
@@ -489,7 +488,6 @@ impl KeyboardState {
                 Some(event)
             }
             WM_CHAR | WM_SYSCHAR => {
-                //println!("char wparam {:x} lparam {:x}", wparam, lparam);
                 if is_last_message(hwnd, msg, lparam) {
                     let stash_vk = self.stash_vk.take();
                     let modifiers = self.get_modifiers();
@@ -671,11 +669,7 @@ impl KeyboardState {
             Key::Character(s.clone())
         } else {
             let mapped = self.map_vk(vk);
-            if mapped >= (1 << 31) {
-                Key::Dead
-            } else {
-                code_unit_to_key(mapped)
-            }
+            if mapped >= (1 << 31) { Key::Dead } else { code_unit_to_key(mapped) }
         }
     }
 

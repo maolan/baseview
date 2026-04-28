@@ -1,10 +1,10 @@
 use crate::x11::xcb_connection::XcbConnection;
 use std::error::Error;
+use x11rb::COPY_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{
     Colormap, ColormapAlloc, ConnectionExt, Screen, VisualClass, Visualid,
 };
-use x11rb::COPY_FROM_PARENT;
 
 pub(super) struct WindowVisualConfig {
     #[cfg(feature = "opengl")]

@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 
 use cocoa::appkit::{NSEvent, NSFilenamesPboardType, NSView, NSWindow};
-use cocoa::base::{id, nil, BOOL, NO, YES};
+use cocoa::base::{BOOL, NO, YES, id, nil};
 use cocoa::foundation::{NSArray, NSPoint, NSRect, NSSize, NSUInteger};
 
 use objc::{

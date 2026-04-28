@@ -18,9 +18,7 @@ pub struct Proxy<T: 'static> {
 
 impl<T: 'static> Clone for Proxy<T> {
     fn clone(&self) -> Self {
-        Self {
-            sender: self.sender.clone(),
-        }
+        Self { sender: self.sender.clone() }
     }
 }
 
@@ -69,8 +67,7 @@ impl<T: 'static> Sink<Action<T>> for Proxy<T> {
     }
 
     fn poll_close(
-        mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
+        mut self: Pin<&mut Self>, _cx: &mut Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
         self.sender.disconnect();
         Poll::Ready(Ok(()))

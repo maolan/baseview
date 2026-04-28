@@ -12,8 +12,7 @@ mod timed;
 pub use timed::timed;
 
 pub fn application<State, Message, Theme, Renderer>(
-    boot: impl BootFn<State, Message>,
-    update: impl UpdateFn<State, Message>,
+    boot: impl BootFn<State, Message>, update: impl UpdateFn<State, Message>,
     view: impl for<'a> ViewFn<'a, State, Message, Theme, Renderer>,
 ) -> Application<impl Program<State = State, Message = Message, Theme = Theme>>
 where
@@ -65,9 +64,7 @@ where
         }
 
         fn view<'a>(
-            &self,
-            state: &'a Self::State,
-            _window: window::Id,
+            &self, state: &'a Self::State, _window: window::Id,
         ) -> Element<'a, Self::Message, Self::Theme, Self::Renderer> {
             self.view.view(state)
         }
@@ -142,32 +139,17 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the [`Settings`] that will be used to run the [`Application`].
     pub fn settings(self, settings: Settings) -> Self {
-        Self {
-            iced_settings: settings,
-            ..self
-        }
+        Self { iced_settings: settings, ..self }
     }
 
     /// Sets the [`Settings::antialiasing`] of the [`Application`].
     pub fn antialiasing(self, antialiasing: bool) -> Self {
-        Self {
-            iced_settings: Settings {
-                antialiasing,
-                ..self.iced_settings
-            },
-            ..self
-        }
+        Self { iced_settings: Settings { antialiasing, ..self.iced_settings }, ..self }
     }
 
     /// Sets the default [`Font`] of the [`Application`].
     pub fn default_font(self, default_font: Font) -> Self {
-        Self {
-            iced_settings: Settings {
-                default_font,
-                ..self.iced_settings
-            },
-            ..self
-        }
+        Self { iced_settings: Settings { default_font, ..self.iced_settings }, ..self }
     }
 
     /// Adds a font to the list of fonts that will be loaded at the start of the [`Application`].
@@ -178,8 +160,7 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the title of the [`Application`].
     pub fn title(
-        self,
-        title: impl TitleFn<P::State>,
+        self, title: impl TitleFn<P::State>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
         Application {
             raw: program::with_title(self.raw, move |state, _window| title.title(state)),
@@ -190,8 +171,7 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the subscription logic of the [`Application`].
     pub fn subscription(
-        self,
-        f: impl Fn(&P::State) -> Subscription<P::Message>,
+        self, f: impl Fn(&P::State) -> Subscription<P::Message>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
         Application {
             raw: program::with_subscription(self.raw, f),
@@ -202,8 +182,7 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the theme logic of the [`Application`].
     pub fn theme(
-        self,
-        f: impl ThemeFn<P::State, P::Theme>,
+        self, f: impl ThemeFn<P::State, P::Theme>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
         Application {
             raw: program::with_theme(self.raw, move |state, _window| f.theme(state)),
@@ -214,8 +193,7 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the style logic of the [`Application`].
     pub fn style(
-        self,
-        f: impl Fn(&P::State, &P::Theme) -> theme::Style,
+        self, f: impl Fn(&P::State, &P::Theme) -> theme::Style,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
         Application {
             raw: program::with_style(self.raw, f),
@@ -226,8 +204,7 @@ impl<P: Program + Send> Application<P> {
 
     /// Sets the scale factor of the [`Application`].
     pub fn scale_factor(
-        self,
-        f: impl Fn(&P::State) -> f32,
+        self, f: impl Fn(&P::State) -> f32,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
         Application {
             raw: program::with_scale_factor(self.raw, move |state, _window| f(state)),
@@ -256,10 +233,7 @@ impl<P: Program + Send> Application<P> {
     /// of your application during testing to create reproducible
     /// environments.
     pub fn presets(self, presets: impl IntoIterator<Item = Preset<P::State, P::Message>>) -> Self {
-        Self {
-            presets: presets.into_iter().collect(),
-            ..self
-        }
+        Self { presets: presets.into_iter().collect(), ..self }
     }
 }
 
@@ -305,9 +279,7 @@ impl<P: Program> Program for ApplicationInner<P> {
     }
 
     fn view<'a>(
-        &self,
-        state: &'a Self::State,
-        window: window::Id,
+        &self, state: &'a Self::State, window: window::Id,
     ) -> Element<'a, Self::Message, Self::Theme, Self::Renderer> {
         debug::hot(|| self.raw.view(state, window))
     }

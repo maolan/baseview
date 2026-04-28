@@ -21,8 +21,7 @@ use iced_debug as debug;
 ///
 /// [`comet`]: https://github.com/iced-rs/comet
 pub fn timed<State, Message, Theme, Renderer>(
-    boot: impl BootFn<State, Message>,
-    update: impl UpdateFn<State, Message>,
+    boot: impl BootFn<State, Message>, update: impl UpdateFn<State, Message>,
     subscription: impl Fn(&State) -> Subscription<Message>,
     view: impl for<'a> ViewFn<'a, State, Message, Theme, Renderer>,
 ) -> Application<impl Program<State = State, Message = (Message, Instant), Theme = Theme>>
@@ -83,9 +82,7 @@ where
         }
 
         fn update(
-            &self,
-            state: &mut Self::State,
-            (message, now): Self::Message,
+            &self, state: &mut Self::State, (message, now): Self::Message,
         ) -> Task<Self::Message> {
             debug::hot(move || {
                 self.update
@@ -96,15 +93,9 @@ where
         }
 
         fn view<'a>(
-            &self,
-            state: &'a Self::State,
-            _window: window::Id,
+            &self, state: &'a Self::State, _window: window::Id,
         ) -> Element<'a, Self::Message, Self::Theme, Self::Renderer> {
-            debug::hot(|| {
-                self.view
-                    .view(state)
-                    .map(|message| (message, Instant::now()))
-            })
+            debug::hot(|| self.view.view(state).map(|message| (message, Instant::now())))
         }
 
         fn subscription(&self, state: &Self::State) -> self::Subscription<Self::Message> {
@@ -140,10 +131,7 @@ pub trait UpdateFn<State, Message> {
 
 impl<State, Message> UpdateFn<State, Message> for () {
     fn update(
-        &self,
-        _state: &mut State,
-        _message: Message,
-        _now: Instant,
+        &self, _state: &mut State, _message: Message, _now: Instant,
     ) -> impl Into<Task<Message>> {
     }
 }
@@ -154,10 +142,7 @@ where
     C: Into<Task<Message>>,
 {
     fn update(
-        &self,
-        state: &mut State,
-        message: Message,
-        now: Instant,
+        &self, state: &mut State, message: Message, now: Instant,
     ) -> impl Into<Task<Message>> {
         self(state, message, now)
     }

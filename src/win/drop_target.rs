@@ -4,21 +4,21 @@ use std::os::windows::prelude::OsStringExt;
 use std::ptr::null_mut;
 use std::rc::{Rc, Weak};
 
+use winapi::Interface;
 use winapi::shared::guiddef::{IsEqualIID, REFIID};
 use winapi::shared::minwindef::{DWORD, WPARAM};
 use winapi::shared::ntdef::{HRESULT, ULONG};
 use winapi::shared::windef::{POINT, POINTL};
 use winapi::shared::winerror::{E_NOINTERFACE, E_UNEXPECTED, S_OK};
 use winapi::shared::wtypes::DVASPECT_CONTENT;
-use winapi::um::objidl::{IDataObject, FORMATETC, STGMEDIUM, TYMED_HGLOBAL};
+use winapi::um::objidl::{FORMATETC, IDataObject, STGMEDIUM, TYMED_HGLOBAL};
 use winapi::um::oleidl::{
-    IDropTarget, IDropTargetVtbl, DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE,
-    DROPEFFECT_NONE, DROPEFFECT_SCROLL,
+    DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, DROPEFFECT_NONE, DROPEFFECT_SCROLL,
+    IDropTarget, IDropTargetVtbl,
 };
 use winapi::um::shellapi::{DragQueryFileW, HDROP};
 use winapi::um::unknwnbase::{IUnknown, IUnknownVtbl};
-use winapi::um::winuser::{ScreenToClient, CF_HDROP};
-use winapi::Interface;
+use winapi::um::winuser::{CF_HDROP, ScreenToClient};
 
 use crate::{DropData, DropEffect, Event, EventStatus, MouseEvent, PhyPoint, Point};
 

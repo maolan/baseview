@@ -22,11 +22,7 @@ fn load_cursor(
     conn: &XCBConnection, cursor_handle: &CursorHandle, name: &str,
 ) -> Result<Option<Cursor>, Box<dyn Error>> {
     let cursor = cursor_handle.load_cursor(conn, name)?;
-    if cursor != x11rb::NONE {
-        Ok(Some(cursor))
-    } else {
-        Ok(None)
-    }
+    if cursor != x11rb::NONE { Ok(Some(cursor)) } else { Ok(None) }
 }
 
 fn load_first_existing_cursor(

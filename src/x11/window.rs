@@ -1,9 +1,9 @@
 use std::cell::Cell;
 use std::error::Error;
 use std::ffi::c_void;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use raw_window_handle::{
@@ -25,7 +25,7 @@ use crate::{
 };
 
 #[cfg(feature = "opengl")]
-use crate::gl::{platform, GlContext};
+use crate::gl::{GlContext, platform};
 use crate::x11::event_loop::EventLoop;
 use crate::x11::visual_info::WindowVisualConfig;
 
@@ -158,9 +158,7 @@ impl<'a> Window<'a> {
 
         let _ = rx.recv().unwrap().unwrap();
 
-        thread.join().unwrap_or_else(|err| {
-            eprintln!("Window thread panicked: {:#?}", err);
-        });
+        let _ = thread.join();
     }
 
     fn window_thread<H, B>(

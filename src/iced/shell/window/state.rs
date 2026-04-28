@@ -31,12 +31,8 @@ pub struct State<P: Program> {
 impl<P: Program> State<P> {
     /// Creates a new [`State`] for the provided [`Program`] and window.
     pub fn new(
-        program: &program::Instance<P>,
-        window_id: window::Id,
-        window_physical_size: Size<u32>,
-        window_scale_factor: f32,
-        scale_policy: WindowScalePolicy,
-        system_theme: theme::Mode,
+        program: &program::Instance<P>, window_id: window::Id, window_physical_size: Size<u32>,
+        window_scale_factor: f32, scale_policy: WindowScalePolicy, system_theme: theme::Mode,
     ) -> Self {
         let title = program.title(window_id);
         let program_scale_factor = program.scale_factor(window_id);
@@ -94,9 +90,7 @@ impl<P: Program> State<P> {
 
     /// Returns the current cursor position of the [`State`].
     pub fn cursor(&self) -> mouse::Cursor {
-        self.cursor_position
-            .map(mouse::Cursor::Available)
-            .unwrap_or(mouse::Cursor::Unavailable)
+        self.cursor_position.map(mouse::Cursor::Available).unwrap_or(mouse::Cursor::Unavailable)
     }
 
     /// Returns the current theme of the [`State`].
@@ -140,14 +134,9 @@ impl<P: Program> State<P> {
 
                 self.surface_version += 1;
             }
-            crate::Event::Mouse(crate::MouseEvent::CursorMoved {
-                position,
-                modifiers: _,
-            }) => {
-                self.cursor_position = Some(crate::iced::core::Point {
-                    x: position.x as f32,
-                    y: position.y as f32,
-                });
+            crate::Event::Mouse(crate::MouseEvent::CursorMoved { position, modifiers: _ }) => {
+                self.cursor_position =
+                    Some(crate::iced::core::Point { x: position.x as f32, y: position.y as f32 });
             }
             crate::Event::Mouse(crate::MouseEvent::CursorLeft) => {
                 self.cursor_position = None;
@@ -195,11 +184,7 @@ impl<P: Program> State<P> {
         self.theme = program.theme(window_id);
         self.style = program.style(self.theme());
 
-        let new_mode = self
-            .theme
-            .as_ref()
-            .map(theme::Base::mode)
-            .unwrap_or_default();
+        let new_mode = self.theme.as_ref().map(theme::Base::mode).unwrap_or_default();
 
         if self.theme_mode != new_mode {
             self.theme_mode = if new_mode == theme::Mode::None {
@@ -211,10 +196,7 @@ impl<P: Program> State<P> {
     }
 
     pub fn set_system_theme(
-        &mut self,
-        window_id: window::Id,
-        system_theme: theme::Mode,
-        program: &program::Instance<P>,
+        &mut self, window_id: window::Id, system_theme: theme::Mode, program: &program::Instance<P>,
     ) {
         let theme = program.theme(window_id);
         self.theme_mode = theme.as_ref().map(theme::Base::mode).unwrap_or_default();
