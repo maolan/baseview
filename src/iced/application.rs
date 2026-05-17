@@ -266,7 +266,6 @@ impl<P: Program> Program for ApplicationInner<P> {
     }
 
     fn window(&self) -> Option<window::Settings> {
-        // Unused by the baseview backend
         Some(window::Settings::default())
     }
 

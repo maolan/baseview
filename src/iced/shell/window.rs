@@ -34,7 +34,7 @@ where
     pub surface_version: u64,
     pub compositor: C,
     pub renderer: P::Renderer,
-    //pub preedit: Option<Preedit<P::Renderer>>,
+
     pub queue: WindowQueue,
     pub window06: WindowWrapper,
     pub id: iced_core::window::Id,
@@ -43,7 +43,6 @@ where
     pub ignore_non_modifier_keys: bool,
     pub redraw_requested: bool,
     pub redraw_at: Option<Instant>,
-    //ime_state: Option<(Rectangle, input_method::Purpose)>,
 }
 
 pub(super) struct IcedWindowHandler<P: Program> {
@@ -95,18 +94,14 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
 
         self.sender.start_send(RuntimeEvent::Poll).expect("Send event");
 
-        // Flush all messages. This will block until the instance is finished.
         let _ = self.instance.as_mut().poll(&mut self.runtime_context);
 
-        // Poll subscriptions and send the corresponding messages.
         while let Ok(message) = self.runtime_rx.try_recv() {
             self.sender.start_send(RuntimeEvent::UserEvent(message)).expect("Send event");
         }
 
-        // Send the event to the instance.
         self.sender.start_send(RuntimeEvent::OnFrame).expect("Send event");
 
-        // Flush all messages. This will block until the instance is finished.
         let _ = self.instance.as_mut().poll(&mut self.runtime_context);
 
         self.drain_window_commands(window);
@@ -117,8 +112,6 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
             return EventStatus::Ignored;
         }
 
-        // Parent/embedded windows do not always gain keyboard focus
-        // Automatically on click. Request focus explicitly before forwarding the event.
         #[cfg(not(target_os = "linux"))]
         if matches!(event, Event::Mouse(crate::MouseEvent::ButtonPressed { .. }))
             && !window.has_focus()
@@ -131,18 +124,14 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
 
             self.sender.start_send(RuntimeEvent::WillClose).expect("Send event");
 
-            // Flush all messages so the application receives the close event. This will block until the instance is finished.
             let _ = self.instance.as_mut().poll(&mut self.runtime_context);
 
             EventStatus::Ignored
         } else {
-            // Send the event to the instance.
             self.sender.start_send(RuntimeEvent::Baseview((event, true))).expect("Send event");
 
-            // Flush all messages so the application receives the event. This will block until the instance is finished.
             let _ = self.instance.as_mut().poll(&mut self.runtime_context);
 
-            // TODO: make this Copy
             *self.event_status.borrow()
         };
 
@@ -279,147 +268,3 @@ impl WindowQueue {
         }
     }
 }
-
-/*
-pub(super) struct Preedit<Renderer>
-where
-    Renderer: text::Renderer,
-{
-    position: Point,
-    content: Renderer::Paragraph,
-    spans: Vec<text::Span<'static, (), Renderer::Font>>,
-}
-
-impl<Renderer> Preedit<Renderer>
-where
-    Renderer: text::Renderer,
-{
-    fn new() -> Self {
-        Self {
-            position: Point::ORIGIN,
-            spans: Vec::new(),
-            content: Renderer::Paragraph::default(),
-        }
-    }
-
-    fn update(
-        &mut self,
-        cursor: Rectangle,
-        preedit: &input_method::Preedit,
-        background: Color,
-        renderer: &Renderer,
-    ) {
-        self.position = cursor.position() + Vector::new(0.0, cursor.height);
-
-        let background = Color {
-            a: 1.0,
-            ..background
-        };
-
-        let spans = match &preedit.selection {
-            Some(selection) => {
-                vec![
-                    text::Span::new(&preedit.content[..selection.start]),
-                    text::Span::new(if selection.start == selection.end {
-                        "\u{200A}"
-                    } else {
-                        &preedit.content[selection.start..selection.end]
-                    })
-                    .color(background),
-                    text::Span::new(&preedit.content[selection.end..]),
-                ]
-            }
-            _ => vec![text::Span::new(&preedit.content)],
-        };
-
-        if spans != self.spans.as_slice() {
-            use text::Paragraph as _;
-
-            self.content = Renderer::Paragraph::with_spans(Text {
-                content: &spans,
-                bounds: Size::INFINITE,
-                size: preedit.text_size.unwrap_or_else(|| renderer.default_size()),
-                line_height: text::LineHeight::default(),
-                font: renderer.default_font(),
-                align_x: text::Alignment::Default,
-                align_y: alignment::Vertical::Top,
-                shaping: text::Shaping::Advanced,
-                wrapping: text::Wrapping::None,
-            });
-
-            self.spans.clear();
-            self.spans
-                .extend(spans.into_iter().map(text::Span::to_static));
-        }
-    }
-
-    pub fn draw(
-        &self,
-        renderer: &mut Renderer,
-        color: Color,
-        background: Color,
-        viewport: &Rectangle,
-    ) {
-        use text::Paragraph as _;
-
-        if self.content.min_width() < 1.0 {
-            return;
-        }
-
-        let mut bounds = Rectangle::new(
-            self.position - Vector::new(0.0, self.content.min_height()),
-            self.content.min_bounds(),
-        );
-
-        bounds.x = bounds
-            .x
-            .max(viewport.x)
-            .min(viewport.x + viewport.width - bounds.width);
-
-        bounds.y = bounds
-            .y
-            .max(viewport.y)
-            .min(viewport.y + viewport.height - bounds.height);
-
-        renderer.with_layer(bounds, |renderer| {
-            let background = Color {
-                a: 1.0,
-                ..background
-            };
-
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds,
-                    ..Default::default()
-                },
-                background,
-            );
-
-            renderer.fill_paragraph(&self.content, bounds.position(), color, bounds);
-
-            const UNDERLINE: f32 = 2.0;
-
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: bounds.shrink(Padding {
-                        top: bounds.height - UNDERLINE,
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-                color,
-            );
-
-            for span_bounds in self.content.span_bounds(1) {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: span_bounds + (bounds.position() - Point::ORIGIN),
-                        ..Default::default()
-                    },
-                    color,
-                );
-            }
-        });
-    }
-}
-*/

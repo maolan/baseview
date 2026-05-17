@@ -73,32 +73,26 @@ impl WindowInner {
         if self.open.get() {
             self.open.set(false);
             unsafe {
-                // Take back ownership of the NSView's Rc<WindowState>
                 let state_ptr: *const c_void = *(*self.ns_view).get_ivar(BASEVIEW_STATE_IVAR);
                 let window_state = Rc::from_raw(state_ptr as *mut WindowState);
 
-                // Cancel the frame timer
                 if let Some(frame_timer) = window_state.frame_timer.take() {
                     CFRunLoop::get_current().remove_timer(&frame_timer, kCFRunLoopDefaultMode);
                 }
 
-                // Deregister NSView from NotificationCenter.
                 let notification_center: id =
                     msg_send![class!(NSNotificationCenter), defaultCenter];
                 let () = msg_send![notification_center, removeObserver:self.ns_view];
 
                 drop(window_state);
 
-                // Close the window if in non-parented mode
                 if let Some(ns_window) = self.ns_window.take() {
                     ns_window.close();
                 }
 
-                // Ensure that the NSView is detached from the parent window
                 self.ns_view.removeFromSuperview();
                 let () = msg_send![self.ns_view as id, release];
 
-                // If in non-parented mode, we want to also quit the app altogether
                 let app = self.ns_app.take();
                 if let Some(app) = app {
                     app.stop_(app);
@@ -182,11 +176,6 @@ impl<'a> Window<'a> {
     {
         let pool = unsafe { NSAutoreleasePool::new(nil) };
 
-        // It seems prudent to run NSApp() here before doing other
-        // work. It runs [NSApplication sharedApplication], which is
-        // what is run at the very start of the Xcode-generated main
-        // function of a cocoa app according to:
-        // https://developer.apple.com/documentation/appkit/nsapplication
         let app = unsafe { NSApp() };
 
         unsafe {
@@ -311,8 +300,6 @@ impl<'a> Window<'a> {
 
     pub fn resize(&mut self, size: Size) {
         if self.inner.open.get() {
-            // NOTE: macOS gives you a personal rave if you pass in fractional pixels here. Even
-            // though the size is in fractional pixels.
             let size = NSSize::new(size.width.round(), size.height.round());
 
             unsafe { NSView::setFrameSize(self.inner.ns_view, size) };
@@ -320,14 +307,11 @@ impl<'a> Window<'a> {
                 let _: () = msg_send![self.inner.ns_view, setNeedsDisplay: YES];
             }
 
-            // When using OpenGL the `NSOpenGLView` needs to be resized separately? Why? Because
-            // macOS.
             #[cfg(feature = "opengl")]
             if let Some(gl_context) = &self.inner.gl_context {
                 gl_context.resize(size);
             }
 
-            // If this is a standalone window then we'll also need to resize the window itself
             if let Some(ns_window) = self.inner.ns_window.get() {
                 unsafe { NSWindow::setContentSize_(ns_window, size) };
             }

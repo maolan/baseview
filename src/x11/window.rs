@@ -92,7 +92,6 @@ impl Drop for ParentHandle {
 }
 
 pub(crate) struct WindowInner {
-    // GlContext should be dropped **before** XcbConnection is dropped
     #[cfg(feature = "opengl")]
     gl_context: Option<GlContext>,
 
@@ -109,7 +108,6 @@ pub struct Window<'a> {
     pub(crate) inner: &'a WindowInner,
 }
 
-// Hack to allow sending a RawWindowHandle between threads. Do not make public
 struct SendableRwh(RawWindowHandle);
 
 unsafe impl Send for SendableRwh {}
@@ -124,7 +122,6 @@ impl<'a> Window<'a> {
         B: FnOnce(&mut crate::Window) -> H,
         B: Send + 'static,
     {
-        // Convert parent into something that X understands
         let parent_id = match parent.raw_window_handle() {
             RawWindowHandle::Xlib(h) => h.window as u32,
             RawWindowHandle::Xcb(h) => h.window,
@@ -170,11 +167,8 @@ impl<'a> Window<'a> {
         B: FnOnce(&mut crate::Window) -> H,
         B: Send + 'static,
     {
-        // Connect to the X server
-        // FIXME: baseview error type instead of unwrap()
         let xcb_connection = XcbConnection::new()?;
 
-        // Get screen information
         let screen = xcb_connection.screen();
         let parent_id = parent.unwrap_or(screen.root);
 
@@ -204,11 +198,11 @@ impl<'a> Window<'a> {
             visual_info.visual_depth,
             window_id,
             parent_id,
-            0,                                         // x coordinate of the new window
-            0,                                         // y coordinate of the new window
-            window_info.physical_size().width as u16,  // window width
-            window_info.physical_size().height as u16, // window height
-            0,                                         // window border
+            0,
+            0,
+            window_info.physical_size().width as u16,
+            window_info.physical_size().height as u16,
+            0,
             WindowClass::INPUT_OUTPUT,
             visual_info.visual_id,
             &CreateWindowAux::new()
@@ -223,14 +217,11 @@ impl<'a> Window<'a> {
                         | EventMask::ENTER_WINDOW
                         | EventMask::LEAVE_WINDOW,
                 )
-                // As mentioned above, these two values are needed to be able to create a window
-                // with a depth of 32-bits when the parent window has a different depth
                 .colormap(visual_info.color_map)
                 .border_pixel(0),
         )?;
         xcb_connection.conn.map_window(window_id)?;
 
-        // Change window title
         let title = options.title;
         xcb_connection.conn.change_property8(
             PropMode::REPLACE,
@@ -250,9 +241,6 @@ impl<'a> Window<'a> {
 
         xcb_connection.conn.flush()?;
 
-        // TODO: These APIs could use a couple tweaks now that everything is internal and there is
-        //       no error handling anymore at this point. Everything is more or less unchanged
-        //       compared to when raw-gl-context was a separate crate.
         #[cfg(feature = "opengl")]
         let gl_context = visual_info.fb_config.map(|fb_config| {
             use std::ffi::c_ulong;
@@ -260,7 +248,6 @@ impl<'a> Window<'a> {
             let window = window_id as c_ulong;
             let display = xcb_connection.dpy;
 
-            // Because of the visual negotation we had to take some extra steps to create this context
             let context = unsafe { platform::GlContext::create(window, display, fb_config) }
                 .expect("Could not create OpenGL context");
             GlContext::new(context)
@@ -283,8 +270,6 @@ impl<'a> Window<'a> {
 
         let mut handler = build(&mut window);
 
-        // Send an initial window resized event so the user is alerted of
-        // the correct dpi scaling.
         handler.on_event(&mut window, Event::Window(WindowEvent::Resized(window_info)));
 
         let _ = tx.send(Ok(SendableRwh(window.raw_window_handle())));
@@ -320,9 +305,7 @@ impl<'a> Window<'a> {
         true
     }
 
-    pub fn focus(&mut self) {
-        // no-op
-    }
+    pub fn focus(&mut self) {}
 
     pub fn resize(&mut self, size: Size) {
         let scaling = self.inner.window_info.scale();
@@ -335,9 +318,6 @@ impl<'a> Window<'a> {
                 .height(new_window_info.physical_size().height),
         );
         let _ = self.inner.xcb_connection.conn.flush();
-
-        // This will trigger a `ConfigureNotify` event which will in turn change `self.window_info`
-        // and notify the window handler about it
     }
 
     #[cfg(feature = "opengl")]

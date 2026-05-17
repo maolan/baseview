@@ -83,10 +83,6 @@ where
     notifier: PollSubNotifier,
 }
 
-// This is a bit hacky, but Iced doesn't let you define custom subscription
-// events. So instead, we use an event that is never used in baseview.
-//
-// TODO: Ask Iced team to add custom subscription events.
 const POLL_EVENT: iced_core::Event =
     iced_core::Event::Window(iced_core::window::Event::Moved(Point::ORIGIN));
 
@@ -176,7 +172,6 @@ where
 
     let (runtime_tx, runtime_rx) = mpsc::unbounded::<Action<P::Message>>();
 
-    // Assume scale for now until there is an event with a new one.
     let window_scale_factor = 1.0;
 
     let viewport = {
@@ -264,7 +259,7 @@ where
         surface_version,
         compositor,
         renderer,
-        //preedit: None,
+
         queue: window_queue,
         window06,
         id: window_id,
@@ -333,15 +328,12 @@ where
 
     window.mouse_interaction = mouse::Interaction::default();
 
-    // Triggered whenever a baseview event gets sent
     window.redraw_requested = true;
     window.redraw_at = None;
-    // May be triggered when processing baseview events, will cause the UI to be updated in the next
-    // frame
+
     let mut did_process_event = false;
 
     'next_event: loop {
-        // Empty the queue if possible
         let event = if let Ok(event) = event_receiver.try_recv() {
             Some(event)
         } else {
@@ -442,7 +434,7 @@ where
                     }
                 }
 
-                for (event, status) in window_events.into_iter().zip(statuses.into_iter()) {
+                for (event, status) in window_events.into_iter().zip(statuses) {
                     runtime.broadcast(subscription::Event::Interaction {
                         window: window.id,
                         event,
@@ -487,8 +479,6 @@ where
                     window.redraw_requested = true;
                 }
 
-                // -- Draw --------------------------------------------------------------------
-
                 if let Some(redraw_at) = window.redraw_at {
                     if redraw_at <= Instant::now() {
                         window.redraw_requested = true;
@@ -511,7 +501,6 @@ where
                     continue 'next_event;
                 }
 
-                // Window was resized between redraws
                 if window.surface_version != window.state.surface_version() {
                     let ui = interface.take().expect("Remove user interface");
 
@@ -576,8 +565,6 @@ where
                         )));
 
                         for action in actions {
-                            // Defer all window actions to avoid compositor
-                            // race conditions while redrawing
                             if let Action::Window(_) = action {
                                 proxy.send_action(action);
                                 continue;
@@ -594,7 +581,6 @@ where
                             );
                         }
 
-                        // Window scale factor changed during a redraw request
                         if logical_size != window.state.logical_size() {
                             logical_size = window.state.logical_size();
 
@@ -648,17 +634,6 @@ where
                     status: iced_core::event::Status::Ignored,
                 });
 
-                /*
-                if let Some(preedit) = &window.preedit {
-                    preedit.draw(
-                        &mut window.renderer,
-                        window.state.text_color(),
-                        window.state.background_color(),
-                        &Rectangle::new(Point::ORIGIN, window.state.viewport().logical_size()),
-                    );
-                }
-                */
-
                 let present_span = iced_debug::present(window.id);
                 match window.compositor.present(
                     &mut window.renderer,
@@ -672,13 +647,11 @@ where
                     }
                     Err(error) => match error {
                         compositor::SurfaceError::OutOfMemory => {
-                            // This is an unrecoverable error.
                             panic!("{error:?}");
                         }
                         compositor::SurfaceError::Outdated | compositor::SurfaceError::Lost => {
                             present_span.finish();
 
-                            // Reconfigure surface and try redrawing
                             let physical_size = window.state.physical_size();
 
                             if error == compositor::SurfaceError::Lost {
@@ -702,7 +675,6 @@ where
 
                             error!("Error {error:?} when presenting surface.");
 
-                            // Try rendering all windows again next frame.
                             window.redraw_requested = true;
                         }
                     },
@@ -763,7 +735,6 @@ where
         }
     }
 
-    // Manually drop the user interface
     let _ = ManuallyDrop::into_inner(interface);
 }
 
@@ -826,7 +797,6 @@ where
             let waker = futures::task::noop_waker_ref();
             let mut context = futures::task::Context::from_waker(waker);
 
-            // Run immediately available actions synchronously (e.g. widget operations)
             loop {
                 match runtime.enter(|| stream.poll_next_unpin(&mut context)) {
                     futures::task::Poll::Ready(Some(action)) => {
@@ -1050,14 +1020,12 @@ fn run_action<'a, P>(
             iced_runtime::image::Action::Allocate(handle, sender) => {
                 use iced_core::Renderer as _;
 
-                // TODO: Shared image cache in compositor
                 window.renderer.allocate_image(&handle, move |allocation| {
                     let _ = sender.send(allocation);
                 });
             }
         },
         Action::LoadFont { bytes, channel } => {
-            // TODO: Error handling (?)
             window.compositor.load_font(bytes.clone());
 
             let _ = channel.send(Ok(()));

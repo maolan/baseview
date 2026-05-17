@@ -17,7 +17,7 @@ use crate::x11 as platform;
 
 pub struct WindowHandle {
     window_handle: platform::WindowHandle,
-    // so that WindowHandle is !Send on all platforms
+
     phantom: PhantomData<*mut ()>,
 }
 
@@ -52,7 +52,6 @@ pub trait WindowHandler {
 pub struct Window<'a> {
     window: platform::Window<'a>,
 
-    // so that Window is !Send on all platforms
     phantom: PhantomData<*mut ()>,
 }
 

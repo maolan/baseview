@@ -133,11 +133,6 @@ pub(super) unsafe fn create_view(window_options: &WindowOpenOptions) -> id {
 }
 
 unsafe fn create_view_class() -> &'static Class {
-    // Use unique class names so that there are no conflicts between different
-    // instances. The class is deleted when the view is released. Previously,
-    // the class was stored in a OnceCell after creation. This way, we didn't
-    // have to recreate it each time a view was opened, but now we don't leave
-    // any class definitions lying around when the plugin is closed.
     let class_name = format!("BaseviewNSView_{}", Uuid::new_v4().to_simple());
     let mut class = ClassDecl::new(&class_name, class!(NSView)).unwrap();
 
@@ -281,7 +276,6 @@ extern "C" fn dealloc(this: &mut Object, _sel: Sel) {
         let superclass = msg_send![this, superclass];
         let () = msg_send![super(this, superclass), dealloc];
 
-        // Delete class
         ::objc::runtime::objc_disposeClassPair(class);
     }
 }
@@ -304,8 +298,6 @@ extern "C" fn view_did_change_backing_properties(this: &Object, _: Sel, _: id) {
 
         let window_info = state.window_info.get();
 
-        // Only send the event when the window's size has actually changed to be in line with the
-        // other platform implementations
         if new_window_info.physical_size() != window_info.physical_size() {
             state.window_info.set(new_window_info);
             state.trigger_event(Event::Window(WindowEvent::Resized(new_window_info)));
@@ -498,9 +490,6 @@ extern "C" fn dragging_updated(this: &Object, _sel: Sel, sender: id) -> NSUInteg
 }
 
 extern "C" fn prepare_for_drag_operation(_this: &Object, _sel: Sel, _sender: id) -> BOOL {
-    // Always accept drag operation if we get this far
-    // This function won't be called unless dragging_entered/updated
-    // has returned an acceptable operation
     YES
 }
 
@@ -532,18 +521,12 @@ extern "C" fn handle_notification(this: &Object, _cmd: Sel, notification: id) {
     unsafe {
         let state = WindowState::from_view(this);
 
-        // The subject of the notication, in this case an NSWindow object.
         let notification_object: id = msg_send![notification, object];
 
-        // The NSWindow object associated with our NSView.
         let window: id = msg_send![this, window];
 
         let first_responder: id = msg_send![window, firstResponder];
 
-        // Only trigger focus events if the NSWindow that's being notified about is our window,
-        // and if the window's first responder is our NSView.
-        // If the first responder isn't our NSView, the focus events will instead be triggered
-        // by the becomeFirstResponder and resignFirstResponder methods on the NSView itself.
         if notification_object == window && first_responder == this as *const Object as id {
             let is_key_window: BOOL = msg_send![window, isKeyWindow];
             state.trigger_event(Event::Window(if is_key_window == YES {

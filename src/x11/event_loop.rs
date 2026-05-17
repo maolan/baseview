@@ -37,9 +37,6 @@ impl EventLoop {
 
     #[inline]
     fn drain_xcb_events(&mut self) -> Result<(), Box<dyn Error>> {
-        // the X server has a tendency to send spurious/extraneous configure notify events when a
-        // window is resized, and we need to batch those together and just send one resize event
-        // when they've all been coalesced.
         self.new_physical_size = None;
 
         while let Some(event) = self.window.xcb_connection.conn.poll_for_event()? {
@@ -61,10 +58,6 @@ impl EventLoop {
         Ok(())
     }
 
-    // Event loop
-    // FIXME: poll() acts fine on linux, sometimes funky on *BSD. XCB upstream uses a define to
-    // switch between poll() and select() (the latter of which is fine on *BSD), and we should do
-    // the same.
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
         use nix::poll::*;
         use std::os::fd::BorrowedFd;
@@ -75,12 +68,6 @@ impl EventLoop {
         self.event_loop_running = true;
 
         while self.event_loop_running {
-            // We'll try to keep a consistent frame pace. If the last frame couldn't be processed in
-            // the expected frame time, this will throttle down to prevent multiple frames from
-            // being queued up. The conditional here is needed because event handling and frame
-            // drawing is interleaved. The `poll()` function below will wait until the next frame
-            // can be drawn, or until the window receives an event. We thus need to manually check
-            // if it's already time to draw a new frame.
             let next_frame = last_frame + self.frame_interval;
             if Instant::now() >= next_frame {
                 self.handler.on_frame(&mut crate::Window::new(Window { inner: &self.window }));
@@ -90,11 +77,8 @@ impl EventLoop {
             let xcb_borrowed_fd = unsafe { BorrowedFd::borrow_raw(xcb_fd) };
             let mut fds = [PollFd::new(xcb_borrowed_fd, PollFlags::POLLIN)];
 
-            // Check for any events in the internal buffers
-            // before going to sleep:
             self.drain_xcb_events()?;
 
-            // FIXME: handle errors
             poll(&mut fds, next_frame.duration_since(Instant::now()).subsec_millis() as u16)
                 .unwrap();
 
@@ -108,8 +92,6 @@ impl EventLoop {
                 }
             }
 
-            // Check if the parents's handle was dropped (such as when the host
-            // requested the window to close)
             if let Some(parent_handle) = &self.parent_handle {
                 if parent_handle.parent_did_drop() {
                     self.handle_must_close();
@@ -117,7 +99,6 @@ impl EventLoop {
                 }
             }
 
-            // Check if the user has requested the window to close
             if self.window.close_requested.get() {
                 self.handle_must_close();
                 self.window.close_requested.set(false);
@@ -128,37 +109,16 @@ impl EventLoop {
     }
 
     fn handle_xcb_event(&mut self, event: XEvent) {
-        // For all the keyboard and mouse events, you can fetch
-        // `x`, `y`, `detail`, and `state`.
-        // - `x` and `y` are the position inside the window where the cursor currently is
-        //   when the event happened.
-        // - `detail` will tell you which keycode was pressed/released (for keyboard events)
-        //   or which mouse button was pressed/released (for mouse events).
-        //   For mouse events, here's what the value means (at least on my current mouse):
-        //      1 = left mouse button
-        //      2 = middle mouse button (scroll wheel)
-        //      3 = right mouse button
-        //      4 = scroll wheel up
-        //      5 = scroll wheel down
-        //      8 = lower side button ("back" button)
-        //      9 = upper side button ("forward" button)
-        //   Note that you *will* get a "button released" event for even the scroll wheel
-        //   events, which you can probably ignore.
-        // - `state` will tell you the state of the main three mouse buttons and some of
-        //   the keyboard modifier keys at the time of the event.
-        //   http://rtbo.github.io/rust-xcb/src/xcb/ffi/xproto.rs.html#445
-
         match event {
             ////
-            // window
+
             ////
-            XEvent::ClientMessage(event) => {
+            XEvent::ClientMessage(event)
                 if event.format == 32
                     && event.data.as_data32()[0]
-                        == self.window.xcb_connection.atoms.WM_DELETE_WINDOW
-                {
-                    self.handle_close_requested();
-                }
+                        == self.window.xcb_connection.atoms.WM_DELETE_WINDOW =>
+            {
+                self.handle_close_requested();
             }
 
             XEvent::ConfigureNotify(event) => {
@@ -172,7 +132,7 @@ impl EventLoop {
             }
 
             ////
-            // mouse
+
             ////
             XEvent::MotionNotify(event) => {
                 let physical_pos = PhyPoint::new(event.event_x as i32, event.event_y as i32);
@@ -192,8 +152,7 @@ impl EventLoop {
                     &mut crate::Window::new(Window { inner: &self.window }),
                     Event::Mouse(MouseEvent::CursorEntered),
                 );
-                // since no `MOTION_NOTIFY` event is generated when `ENTER_NOTIFY` is generated,
-                // we generate a CursorMoved as well, so the mouse position from here isn't lost
+
                 let physical_pos = PhyPoint::new(event.event_x as i32, event.event_y as i32);
                 let logical_pos = physical_pos.to_logical(&self.window.window_info);
                 self.handler.on_event(
@@ -240,21 +199,19 @@ impl EventLoop {
                 }
             },
 
-            XEvent::ButtonRelease(event) => {
-                if !(4..=7).contains(&event.detail) {
-                    let button_id = mouse_id(event.detail);
-                    self.handler.on_event(
-                        &mut crate::Window::new(Window { inner: &self.window }),
-                        Event::Mouse(MouseEvent::ButtonReleased {
-                            button: button_id,
-                            modifiers: key_mods(event.state),
-                        }),
-                    );
-                }
+            XEvent::ButtonRelease(event) if !(4..=7).contains(&event.detail) => {
+                let button_id = mouse_id(event.detail);
+                self.handler.on_event(
+                    &mut crate::Window::new(Window { inner: &self.window }),
+                    Event::Mouse(MouseEvent::ButtonReleased {
+                        button: button_id,
+                        modifiers: key_mods(event.state),
+                    }),
+                );
             }
 
             ////
-            // keys
+
             ////
             XEvent::KeyPress(event) => {
                 self.handler.on_event(
@@ -275,7 +232,6 @@ impl EventLoop {
     }
 
     fn handle_close_requested(&mut self) {
-        // FIXME: handler should decide whether window stays open or not
         self.handle_must_close();
     }
 

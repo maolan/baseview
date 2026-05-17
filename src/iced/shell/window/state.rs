@@ -141,31 +141,18 @@ impl<P: Program> State<P> {
             crate::Event::Mouse(crate::MouseEvent::CursorLeft) => {
                 self.cursor_position = None;
             }
-            crate::Event::Keyboard(_event) => {
-                /*
-                #[cfg(feature = "debug")]
-                {
-                    use keyboard_types::{Key, KeyState};
-                    if event.key == Key::F12 && event.state == KeyState::Down {
-                        _debug.toggle();
-                    }
-                }
-                */
-            }
+            crate::Event::Keyboard(_event) => {}
             _ => {}
         }
     }
 
     /// Synchronizes the [`State`] with its [`Program`] and its respective window.
     pub fn synchronize(&mut self, program: &program::Instance<P>, window_id: window::Id) {
-        // Update window title
         let new_title = program.title(window_id);
         if self._title != new_title {
-            // TODO
             self._title = new_title;
         }
 
-        // Update scale factor
         let new_program_scale_factor = program.scale_factor(window_id);
         if self.program_scale_factor != new_program_scale_factor {
             self.program_scale_factor = new_program_scale_factor;
@@ -180,7 +167,6 @@ impl<P: Program> State<P> {
             self.viewport = Viewport::with_physical_size(self.viewport.physical_size(), scale);
         }
 
-        // Update theme and appearance
         self.theme = program.theme(window_id);
         self.style = program.style(self.theme());
 

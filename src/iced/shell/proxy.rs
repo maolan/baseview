@@ -58,10 +58,7 @@ impl<T: 'static> Sink<Action<T>> for Proxy<T> {
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.sender.poll_ready(cx) {
-            Poll::Ready(Err(ref e)) if e.is_disconnected() => {
-                // If the receiver disconnected, we consider the sink to be flushed.
-                Poll::Ready(Ok(()))
-            }
+            Poll::Ready(Err(ref e)) if e.is_disconnected() => Poll::Ready(Ok(())),
             x => x,
         }
     }

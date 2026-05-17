@@ -24,8 +24,6 @@ impl From<errors::XLibError> for GlError {
     }
 }
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/GLX_ARB_create_context.txt
-
 type GlXCreateContextAttribsARB = unsafe extern "C" fn(
     dpy: *mut xlib::Display,
     fbc: glx::GLXFBConfig,
@@ -34,12 +32,8 @@ type GlXCreateContextAttribsARB = unsafe extern "C" fn(
     attribs: *const c_int,
 ) -> glx::GLXContext;
 
-// See https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_swap_control.txt
-
 type GlXSwapIntervalEXT =
     unsafe extern "C" fn(dpy: *mut xlib::Display, drawable: glx::GLXDrawable, interval: i32);
-
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_framebuffer_sRGB.txt
 
 const GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB: i32 = 0x20B2;
 
@@ -191,8 +185,6 @@ impl GlContext {
                 return Err(GlError::CreationFailed(CreationFailedError::InvalidFBConfig));
             }
 
-            // Now that we have a matching framebuffer config, we need to know which visual matches
-            // thsi config so the window is compatible with the OpenGL context we're about to create
             let fb_config = *fb_config;
             let visual = glx::glXGetVisualFromFBConfig(display, fb_config);
             if visual.is_null() {

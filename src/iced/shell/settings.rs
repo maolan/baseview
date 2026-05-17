@@ -3,11 +3,6 @@ use crate::{Size, WindowOpenOptions, WindowScalePolicy};
 
 /// Any settings specific to `iced_baseview`.
 pub struct IcedBaseviewSettings {
-    // /// The identifier of the application.
-    // ///
-    // /// If provided, this identifier may be used to identify the application or
-    // /// communicate with it through the windowing system.
-    // pub id: Option<String>,
     /// The [`Window`] settings.
     pub window: WindowOpenOptions,
 

@@ -1,6 +1,6 @@
 [package]
 name = "maolan-baseview"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
     "William Light <git@wrl.lhiaudio.com>",
     "Charles Saracco <crsaracco@gmail.com>",

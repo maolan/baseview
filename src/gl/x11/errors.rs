@@ -23,7 +23,6 @@ pub struct XErrorHandler<'a> {
 impl<'a> XErrorHandler<'a> {
     /// Syncs and checks if any previous X11 calls from the given display returned an error
     pub fn check(&mut self) -> Result<(), XLibError> {
-        // Flush all possible previous errors
         unsafe {
             xlib::XSync(self.display, 0);
         }
@@ -50,14 +49,11 @@ impl<'a> XErrorHandler<'a> {
         unsafe extern "C" fn error_handler(
             _dpy: *mut xlib::Display, err: *mut xlib::XErrorEvent,
         ) -> i32 {
-            // SAFETY: the error pointer should be safe to access
             let err = &*err;
 
             CURRENT_X11_ERROR.with(|error| {
                 let mut error = error.borrow_mut();
                 match error.as_mut() {
-                    // If multiple errors occur, keep the first one since that's likely going to be the
-                    // cause of the other errors
                     Some(_) => 1,
                     None => {
                         *error = Some(XLibError::from_event(err));
@@ -67,13 +63,11 @@ impl<'a> XErrorHandler<'a> {
             })
         }
 
-        // Flush all possible previous errors
         unsafe {
             xlib::XSync(display, 0);
         }
 
         CURRENT_X11_ERROR.with(|error| {
-            // Make sure to clear any errors from the last call to this function
             {
                 *error.borrow_mut() = None;
             }
@@ -83,7 +77,7 @@ impl<'a> XErrorHandler<'a> {
                 let mut h = XErrorHandler { display, error };
                 handler(&mut h)
             }));
-            // Whatever happened, restore old error handler
+
             unsafe { xlib::XSetErrorHandler(old_handler) };
 
             match panic_result {
@@ -136,7 +130,7 @@ impl XLibError {
         }
 
         *buf.last_mut().unwrap() = 0;
-        // SAFETY: whatever XGetErrorText did or not, we guaranteed there is a nul byte at the end of the buffer
+
         let cstr = unsafe { CStr::from_ptr(buf.as_mut_ptr().cast()) };
 
         cstr.to_string_lossy().into()

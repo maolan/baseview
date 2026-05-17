@@ -9,12 +9,7 @@ compile_error!(
      options: thread-pool, tokio, or smol."
 );
 
-#[cfg(all(
-    target_family = "unix",
-    not(target_os = "macos"),
-    //not(feature = "wayland"),
-    not(feature = "x11"),
-))]
+#[cfg(all(target_family = "unix", not(target_os = "macos"), not(feature = "x11"),))]
 compile_error!(
     "No Unix display server backend has been enabled. You must enable a display server \
      feature.\nAvailable options: x11, wayland."
@@ -155,7 +150,6 @@ pub mod widget {
         pub use iced_widget::image::*;
     }
 
-    // We hide the re-exported modules by `iced_widget`
     mod core {}
     mod graphics {}
     mod renderer {}

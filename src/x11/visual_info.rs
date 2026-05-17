@@ -15,7 +15,6 @@ pub(super) struct WindowVisualConfig {
     pub color_map: Option<Colormap>,
 }
 
-// TODO: make visual negotiation actually check all of a visual's parameters
 impl WindowVisualConfig {
     #[cfg(feature = "opengl")]
     pub fn find_best_visual_config_for_gl(
@@ -23,7 +22,6 @@ impl WindowVisualConfig {
     ) -> Result<Self, Box<dyn Error>> {
         let Some(gl_config) = gl_config else { return Self::find_best_visual_config(connection) };
 
-        // SAFETY: TODO
         let (fb_config, window_config) = unsafe {
             crate::gl::platform::GlContext::get_fb_config_and_visual(connection.dpy, gl_config)
         }
@@ -61,8 +59,6 @@ impl WindowVisualConfig {
     }
 }
 
-// For this 32-bit depth to work, you also need to define a color map and set a border
-// pixel: https://cgit.freedesktop.org/xorg/xserver/tree/dix/window.c#n818
 fn create_color_map(
     connection: &XcbConnection, visual_id: Visualid,
 ) -> Result<Colormap, Box<dyn Error>> {

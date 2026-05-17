@@ -1,7 +1,6 @@
 use std::ffi::c_void;
 use std::marker::PhantomData;
 
-// On X11 creating the context is a two step process
 #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
 use raw_window_handle::RawWindowHandle;
 
@@ -10,7 +9,6 @@ mod win;
 #[cfg(target_os = "windows")]
 use win as platform;
 
-// We need to use this directly within the X11 window creation to negotiate the correct visual
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub(crate) mod x11;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]

@@ -207,18 +207,6 @@ pub fn cursor_position(position: PhyPoint, scale_factor: f32) -> Point {
     )
 }
 
-/*
-// As defined in: http://www.unicode.org/faq/private_use.html
-fn is_private_use_character(c: char) -> bool {
-    match c {
-        '\u{E000}'..='\u{F8FF}'
-        | '\u{F0000}'..='\u{FFFFD}'
-        | '\u{100000}'..='\u{10FFFD}' => true,
-        _ => false,
-    }
-}
-*/
-
 fn baseview_key_location_to_iced(
     location: keyboard_types::Location,
 ) -> iced_runtime::core::keyboard::Location {
@@ -638,11 +626,9 @@ fn baseview_to_iced_keycode(
         KCode::NumpadMultiply => Some(ICode::NumpadMultiply),
         KCode::NumpadSubtract => Some(ICode::NumpadSubtract),
 
-        //KCode::AbntC1 => Some(ICode::AbntC1),    // TODO ?
-        //KCode::AbntC1 => Some(ICode::AbntC1),    // TODO ?
         KCode::Convert => Some(ICode::Convert),
         KCode::KanaMode => Some(ICode::KanaMode),
-        //KCode::Kanji => ICode::Kanji),    // TODO ?
+
         KCode::NonConvert => Some(ICode::NonConvert),
         KCode::IntlYen => Some(ICode::IntlYen),
 
@@ -659,17 +645,16 @@ fn baseview_to_iced_keycode(
 
         KCode::Minus => Some(ICode::Minus),
         KCode::Period => Some(ICode::Period),
-        //KCode::Plus => Some(ICode::Plus),    // TODO ?
+
         KCode::Equal => Some(ICode::Equal),
         KCode::Quote => Some(ICode::Quote),
         KCode::Comma => Some(ICode::Comma),
-        //KCode::Grave => Some(ICode::Grave),    // TODO ?
-        //KCode::Colon => Some(ICode::Colon),    // TODO ?
+
         KCode::Semicolon => Some(ICode::Semicolon),
         KCode::Backslash => Some(ICode::Backslash),
         KCode::Slash => Some(ICode::Slash),
         KCode::Tab => Some(ICode::Tab),
-        //KCode::Underline => Some(ICode::Underline),    // TODO ?
+
         KCode::Copy => Some(ICode::Copy),
         KCode::Paste => Some(ICode::Paste),
         KCode::Cut => Some(ICode::Cut),

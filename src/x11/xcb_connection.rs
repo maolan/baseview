@@ -61,9 +61,6 @@ impl XcbConnection {
         })
     }
 
-    // Try to get the scaling with this function first.
-    // If this gives you `None`, fall back to `get_scaling_screen_dimensions`.
-    // If neither work, I guess just assume 96.0 and don't do any scaling.
     fn get_scaling_xft(&self) -> Result<Option<f64>, Box<dyn Error>> {
         if let Some(dpi) = self.resources.get_value::<u32>("Xft.dpi", "")? {
             Ok(Some(dpi as f64 / 96.0))
@@ -72,19 +69,9 @@ impl XcbConnection {
         }
     }
 
-    // Try to get the scaling with `get_scaling_xft` first.
-    // Only use this function as a fallback.
-    // If neither work, I guess just assume 96.0 and don't do any scaling.
     fn get_scaling_screen_dimensions(&self) -> f64 {
-        // Figure out screen information
         let screen = self.screen();
 
-        // Get the DPI from the screen struct
-        //
-        // there are 2.54 centimeters to an inch; so there are 25.4 millimeters.
-        // dpi = N pixels / (M millimeters / (25.4 millimeters / 1 inch))
-        //     = N pixels / (M inch / 25.4)
-        //     = N * 25.4 pixels / M inch
         let width_px = screen.width_in_pixels as f64;
         let width_mm = screen.width_in_millimeters as f64;
         let height_px = screen.height_in_pixels as f64;
@@ -92,7 +79,6 @@ impl XcbConnection {
         let _xres = width_px * 25.4 / width_mm;
         let yres = height_px * 25.4 / height_mm;
 
-        // TODO: choose between `xres` and `yres`? (probably both are the same?)
         yres / 96.0
     }
 
@@ -103,8 +89,6 @@ impl XcbConnection {
 
     #[inline]
     pub fn get_cursor(&self, cursor: MouseCursor) -> Result<Cursor, Box<dyn Error>> {
-        // PANIC: this function is the only point where we access the cache, and we never call
-        // external functions that may make a reentrant call to this function
         let mut cursor_cache = self.cursor_cache.borrow_mut();
 
         match cursor_cache.entry(cursor) {

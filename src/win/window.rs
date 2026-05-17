@@ -131,13 +131,7 @@ pub(crate) unsafe extern "system" fn wnd_proc(
     if !window_state_ptr.is_null() {
         let result = wnd_proc_inner(hwnd, msg, wparam, lparam, &*window_state_ptr);
 
-        // If any of the above event handlers caused tasks to be pushed to the deferred tasks list,
-        // then we'll try to handle them now
         loop {
-            // NOTE: This is written like this instead of using a `while let` loop to avoid exending
-            //       the borrow of `window_state.deferred_tasks` into the call of
-            //       `window_state.handle_deferred_task()` since that may also generate additional
-            //       messages.
             let task = match (*window_state_ptr).deferred_tasks.borrow_mut().pop_front() {
                 Some(task) => task,
                 None => break,
@@ -146,7 +140,6 @@ pub(crate) unsafe extern "system" fn wnd_proc(
             (*window_state_ptr).handle_deferred_task(task);
         }
 
-        // NOTE: This is not handled in `wnd_proc_inner` because of the deferred task loop above
         if msg == WM_NCDESTROY {
             RevokeDragDrop(hwnd);
             unregister_wnd_class((*window_state_ptr).window_class);
@@ -154,8 +147,6 @@ pub(crate) unsafe extern "system" fn wnd_proc(
             drop(Rc::from_raw(window_state_ptr));
         }
 
-        // The actual custom window proc has been moved to another function so we can always handle
-        // the deferred tasks regardless of whether the custom window proc returns early or not
         if let Some(result) = result {
             return result;
         }
@@ -175,16 +166,13 @@ unsafe fn wnd_proc_inner(
 
             let mut mouse_was_outside_window = window_state.mouse_was_outside_window.borrow_mut();
             if *mouse_was_outside_window {
-                // this makes Windows track whether the mouse leaves the window.
-                // When the mouse leaves it results in a `WM_MOUSELEAVE` event.
                 let mut track_mouse = TRACKMOUSEEVENT {
                     cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
                     dwFlags: winapi::um::winuser::TME_LEAVE,
                     hwndTrack: hwnd,
                     dwHoverTime: winapi::um::winuser::HOVER_DEFAULT,
                 };
-                // Couldn't find a good way to track whether the mouse enters,
-                // but if `WM_MOUSEMOVE` happens, the mouse must have entered.
+
                 TrackMouseEvent(&mut track_mouse);
                 *mouse_was_outside_window = false;
 
@@ -265,7 +253,6 @@ unsafe fn wnd_proc_inner(
             if let Some(button) = button {
                 let event = match msg {
                     WM_LBUTTONDOWN | WM_MBUTTONDOWN | WM_RBUTTONDOWN | WM_XBUTTONDOWN => {
-                        // Capture the mouse cursor on button down
                         mouse_button_counter = mouse_button_counter.saturating_add(1);
                         SetCapture(hwnd);
                         MouseEvent::ButtonPressed {
@@ -277,7 +264,6 @@ unsafe fn wnd_proc_inner(
                         }
                     }
                     WM_LBUTTONUP | WM_MBUTTONUP | WM_RBUTTONUP | WM_XBUTTONUP => {
-                        // Release the mouse cursor capture when all buttons are released
                         mouse_button_counter = mouse_button_counter.saturating_sub(1);
                         if mouse_button_counter == 0 {
                             ReleaseCapture();
@@ -318,7 +304,6 @@ unsafe fn wnd_proc_inner(
             Some(0)
         }
         WM_CLOSE => {
-            // Make sure to release the borrow before the DefWindowProc call
             {
                 let mut window = crate::Window::new(window_state.create_window());
 
@@ -330,8 +315,6 @@ unsafe fn wnd_proc_inner(
                     .on_event(&mut window, Event::Window(WindowEvent::WillClose));
             }
 
-            // DestroyWindow(hwnd);
-            // Some(0)
             Some(DefWindowProcW(hwnd, msg, wparam, lparam))
         }
         WM_CHAR | WM_SYSCHAR | WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP
@@ -363,7 +346,6 @@ unsafe fn wnd_proc_inner(
                 let new_window_info =
                     WindowInfo::from_physical_size(PhySize { width, height }, window_info.scale());
 
-                // Only send the event if anything changed
                 if window_info.physical_size() == new_window_info.physical_size() {
                     return None;
                 }
@@ -383,7 +365,6 @@ unsafe fn wnd_proc_inner(
             None
         }
         WM_DPICHANGED => {
-            // To avoid weirdness with the realtime borrow checker.
             let new_rect = {
                 if let WindowScalePolicy::SystemScaleFactor = window_state.scale_policy {
                     let dpi = (wparam & 0xFFFF) as u16 as u32;
@@ -397,7 +378,7 @@ unsafe fn wnd_proc_inner(
                         RECT {
                             left: 0,
                             top: 0,
-                            // todo: check if usize fits into i32
+
                             right: window_info.physical_size().width as i32,
                             bottom: window_info.physical_size().height as i32,
                         },
@@ -408,12 +389,8 @@ unsafe fn wnd_proc_inner(
                 }
             };
             if let Some((mut new_rect, dw_style)) = new_rect {
-                // Convert this desired "client rectangle" size to the actual "window rectangle"
-                // size (Because of course you have to do that).
                 AdjustWindowRectEx(&mut new_rect, dw_style, 0, 0);
 
-                // Windows makes us resize the window manually. This will trigger another `WM_SIZE` event,
-                // which we can then send the user the new scale factor.
                 SetWindowPos(
                     hwnd,
                     hwnd,
@@ -427,13 +404,11 @@ unsafe fn wnd_proc_inner(
 
             None
         }
-        // If WM_SETCURSOR returns `None`, WM_SETCURSOR continues to get handled by the outer window(s),
-        // If it returns `Some(1)`, the current window decides what the cursor is
+
         WM_SETCURSOR => {
             let low_word = LOWORD(lparam as u32) as isize;
             let mouse_in_window = low_word == HTCLIENT;
             if mouse_in_window {
-                // Here we need to set the cursor back to what the state says, since it can have changed when outside the window
                 let cursor =
                     LoadCursorW(null_mut(), cursor_to_lpcwstr(window_state.cursor_icon.get()));
                 unsafe {
@@ -441,12 +416,10 @@ unsafe fn wnd_proc_inner(
                 }
                 Some(1)
             } else {
-                // Cursor is being changed by some other window, e.g. when having mouse on the borders to resize it
                 None
             }
         }
-        // NOTE: `WM_NCDESTROY` is handled in the outer function because this deallocates the window
-        //        state
+
         BV_WINDOW_MUST_CLOSE => {
             DestroyWindow(hwnd);
             Some(0)
@@ -456,7 +429,6 @@ unsafe fn wnd_proc_inner(
 }
 
 unsafe fn register_wnd_class() -> ATOM {
-    // We generate a unique name for the new window class to prevent name collisions
     let class_name_str = format!("Baseview-{}", generate_guid());
     let mut class_name: Vec<u16> = OsStr::new(&class_name_str).encode_wide().collect();
     class_name.push(0);
@@ -498,14 +470,12 @@ pub(super) struct WindowState {
     mouse_button_counter: Cell<usize>,
     mouse_was_outside_window: RefCell<bool>,
     cursor_icon: Cell<MouseCursor>,
-    // Initialized late so the `Window` can hold a reference to this `WindowState`
+
     handler: RefCell<Option<Box<dyn WindowHandler>>>,
     _drop_target: RefCell<Option<Rc<DropTarget>>>,
     scale_policy: WindowScalePolicy,
     dw_style: u32,
 
-    // handle to the win32 keyboard hook
-    // we don't need to read from this, just carry it around so the Drop impl can run
     kb_hook: KeyboardHookHandle,
 
     /// Tasks that should be executed at the end of `wnd_proc`. This is needed to avoid mutably
@@ -540,13 +510,9 @@ impl WindowState {
     pub(self) fn handle_deferred_task(&self, task: WindowTask) {
         match task {
             WindowTask::Resize(size) => {
-                // `self.window_info` will be modified in response to the `WM_SIZE` event that
-                // follows the `SetWindowPos()` call
                 let scaling = self.window_info.borrow().scale();
                 let window_info = WindowInfo::from_logical_size(size, scaling);
 
-                // If the window is a standalone window then the size needs to include the window
-                // decorations
                 let mut rect = RECT {
                     left: 0,
                     top: 0,
@@ -638,7 +604,6 @@ impl Window<'_> {
             title.push(0);
 
             let window_class = register_wnd_class();
-            // todo: manage error ^
 
             let scaling = match options.scale {
                 WindowScalePolicy::SystemScaleFactor => 1.0,
@@ -650,7 +615,7 @@ impl Window<'_> {
             let mut rect = RECT {
                 left: 0,
                 top: 0,
-                // todo: check if usize fits into i32
+
                 right: window_info.physical_size().width as i32,
                 bottom: window_info.physical_size().height as i32,
             };
@@ -685,7 +650,6 @@ impl Window<'_> {
                 null_mut(),
                 null_mut(),
             );
-            // todo: manage error ^
 
             let kb_hook = hook::init_keyboard_hook(hwnd);
 
@@ -710,8 +674,7 @@ impl Window<'_> {
                 mouse_button_counter: Cell::new(0),
                 mouse_was_outside_window: RefCell::new(true),
                 cursor_icon: Cell::new(MouseCursor::Default),
-                // The Window refers to this `WindowState`, so this `handler` needs to be
-                // initialized later
+
                 handler: RefCell::new(None),
                 _drop_target: RefCell::new(None),
                 scale_policy: options.scale,
@@ -732,14 +695,11 @@ impl Window<'_> {
             };
             *window_state.handler.borrow_mut() = Some(Box::new(handler));
 
-            // Only works on Windows 10 unfortunately.
             SetProcessDpiAwarenessContext(
                 winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
             );
 
-            // Now we can get the actual dpi of the window.
             let new_rect = if let WindowScalePolicy::SystemScaleFactor = options.scale {
-                // Only works on Windows 10 unfortunately.
                 let dpi = GetDpiForWindow(hwnd);
                 let scale_factor = dpi as f64 / 96.0;
 
@@ -751,7 +711,7 @@ impl Window<'_> {
                     Some(RECT {
                         left: 0,
                         top: 0,
-                        // todo: check if usize fits into i32
+
                         right: window_info.physical_size().width as i32,
                         bottom: window_info.physical_size().height as i32,
                     })
@@ -772,12 +732,8 @@ impl Window<'_> {
             SetTimer(hwnd, WIN_FRAME_TIMER, 15, None);
 
             if let Some(mut new_rect) = new_rect {
-                // Convert this desired"client rectangle" size to the actual "window rectangle"
-                // size (Because of course you have to do that).
                 AdjustWindowRectEx(&mut new_rect, flags, 0, 0);
 
-                // Windows makes us resize the window manually. This will trigger another `WM_SIZE` event,
-                // which we can then send the user the new scale factor.
                 SetWindowPos(
                     hwnd,
                     hwnd,
@@ -811,8 +767,6 @@ impl Window<'_> {
     }
 
     pub fn resize(&mut self, size: Size) {
-        // To avoid reentrant event handler calls we'll defer the actual resizing until after the
-        // event has been handled
         let task = WindowTask::Resize(size);
         self.state.deferred_tasks.borrow_mut().push_back(task);
     }

@@ -1,20 +1,3 @@
-// Copyright 2020 The Druid Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Baseview modifications to druid code:
-// - update imports, paths etc
-
 //! Key event handling.
 
 use std::cmp::Ordering;
@@ -51,7 +34,6 @@ const VK_ABNT_C2: INT = 0xc2;
 /// A (non-extended) virtual key code.
 type VkCode = u8;
 
-// This is really bitfields.
 type ShiftState = u8;
 const SHIFT_STATE_SHIFT: ShiftState = 1;
 const SHIFT_STATE_ALTGR: ShiftState = 2;
@@ -60,7 +42,7 @@ const N_SHIFT_STATE: ShiftState = 4;
 /// Per-window keyboard state.
 pub(super) struct KeyboardState {
     hkl: HKL,
-    // A map from (vk, is_shifted) to string val
+
     key_vals: HashMap<(VkCode, ShiftState), String>,
     dead_keys: HashSet<(VkCode, ShiftState)>,
     has_altgr: bool,
@@ -270,7 +252,7 @@ fn vk_to_key(vk: VkCode) -> Option<Key> {
         VK_MENU | VK_LMENU | VK_RMENU => Key::Alt,
         VK_PAUSE => Key::Pause,
         VK_CAPITAL => Key::CapsLock,
-        // TODO: disambiguate kana and hangul? same vk
+
         VK_KANA => Key::KanaMode,
         VK_JUNJA => Key::JunjaMode,
         VK_FINAL => Key::FinalMode,
@@ -353,7 +335,6 @@ fn code_unit_to_key(code_unit: u32) -> Key {
             if let Some(c) = std::char::from_u32(code_unit) {
                 Key::Character(c.to_string())
             } else {
-                // UTF-16 error, very unlikely
                 Key::Unidentified
             }
         }
@@ -599,8 +580,7 @@ impl KeyboardState {
             self.has_altgr = false;
             let mut key_state = [0u8; 256];
             let mut uni_chars = [0u16; 5];
-            // Right now, we're only getting the values for base and shifted
-            // variants. Mozilla goes through 16 mod states.
+
             for shift_state in 0..N_SHIFT_STATE {
                 let has_shift = shift_state & SHIFT_STATE_SHIFT != 0;
                 let has_altgr = shift_state & SHIFT_STATE_ALTGR != 0;
@@ -626,9 +606,7 @@ impl KeyboardState {
                             if let Ok(strval) = String::from_utf16(utf16_slice) {
                                 self.key_vals.insert((vk, shift_state), strval);
                             }
-                            // If the AltGr version of the key has a different string than
-                            // the base, then the layout has AltGr. Note that Mozilla also
-                            // checks dead keys for change.
+
                             if has_altgr
                                 && !self.has_altgr
                                 && self.key_vals.get(&(vk, shift_state))
@@ -638,7 +616,6 @@ impl KeyboardState {
                             }
                         }
                         Ordering::Less => {
-                            // It's a dead key, press it again to reset the state.
                             self.dead_keys.insert((vk, shift_state));
                             let _ = ToUnicodeEx(
                                 vk as UINT,

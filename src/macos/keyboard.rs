@@ -1,21 +1,3 @@
-// Copyright 2020 The Druid Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Baseview modifications to druid code:
-// - move from_nsstring function to this file
-// - update imports, paths etc
-
 //! Conversion of platform keyboard event into cross-platform event.
 
 use std::cell::Cell;
@@ -116,15 +98,15 @@ fn key_code_to_code(key_code: u16) -> Code {
         0x37 => Code::MetaLeft,
         0x38 => Code::ShiftLeft,
         0x39 => Code::CapsLock,
-        // Note: in the linked source doc, this is "OSLeft"
+
         0x3a => Code::AltLeft,
         0x3b => Code::ControlLeft,
         0x3c => Code::ShiftRight,
-        // Note: in the linked source doc, this is "OSRight"
+
         0x3d => Code::AltRight,
         0x3e => Code::ControlRight,
-        0x3f => Code::Fn, // No events fired
-        //0x40 => Code::F17,
+        0x3f => Code::Fn,
+
         0x41 => Code::NumpadDecimal,
         0x43 => Code::NumpadMultiply,
         0x45 => Code::NumpadAdd,
@@ -135,8 +117,7 @@ fn key_code_to_code(key_code: u16) -> Code {
         0x4b => Code::NumpadDivide,
         0x4c => Code::NumpadEnter,
         0x4e => Code::NumpadSubtract,
-        //0x4f => Code::F18,
-        //0x50 => Code::F19,
+
         0x51 => Code::NumpadEqual,
         0x52 => Code::Numpad0,
         0x53 => Code::Numpad1,
@@ -146,7 +127,7 @@ fn key_code_to_code(key_code: u16) -> Code {
         0x57 => Code::Numpad5,
         0x58 => Code::Numpad6,
         0x59 => Code::Numpad7,
-        //0x5a => Code::F20,
+
         0x5b => Code::Numpad8,
         0x5c => Code::Numpad9,
         0x5d => Code::IntlYen,
@@ -161,15 +142,13 @@ fn key_code_to_code(key_code: u16) -> Code {
         0x66 => Code::Lang2,
         0x67 => Code::F11,
         0x68 => Code::Lang1,
-        // Note: this is listed as F13, but in testing with a standard
-        // USB kb, this the code produced by PrtSc.
+
         0x69 => Code::PrintScreen,
-        //0x6a => Code::F16,
-        //0x6b => Code::F14,
+
         0x6d => Code::F10,
         0x6e => Code::ContextMenu,
         0x6f => Code::F12,
-        //0x71 => Code::F15,
+
         0x72 => Code::Help,
         0x73 => Code::Home,
         0x74 => Code::PageUp,
@@ -204,7 +183,7 @@ fn code_to_key(code: Code) -> Option<Key> {
         Code::MetaLeft | Code::MetaRight => Key::Meta,
         Code::ControlLeft | Code::ControlRight => Key::Control,
         Code::CapsLock => Key::CapsLock,
-        // kVK_ANSI_KeypadClear
+
         Code::NumLock => Key::Clear,
         Code::Fn => Key::Fn,
         Code::F1 => Key::F1,
@@ -227,9 +206,9 @@ fn code_to_key(code: Code) -> Option<Key> {
         Code::Tab => Key::Tab,
         Code::Backspace => Key::Backspace,
         Code::ContextMenu => Key::ContextMenu,
-        // kVK_JIS_Kana
+
         Code::Lang1 => Key::KanjiMode,
-        // kVK_JIS_Eisu
+
         Code::Lang2 => Key::Eisu,
         Code::Home => Key::Home,
         Code::End => Key::End,
@@ -291,19 +270,11 @@ impl KeyboardState {
                 NSEventType::NSKeyDown => KeyState::Down,
                 NSEventType::NSKeyUp => KeyState::Up,
                 NSEventType::NSFlagsChanged => {
-                    // We use `bits` here because we want to distinguish the
-                    // device dependent bits (when both left and right keys
-                    // may be pressed, for example).
                     let any_down = raw_mods.bits() & !self.last_mods.get().bits();
                     self.last_mods.set(raw_mods);
                     if is_modifier_code(code) {
                         if any_down == 0 { KeyState::Up } else { KeyState::Down }
                     } else {
-                        // HandleFlagsChanged has some logic for this; it might
-                        // happen when an app is deactivated by Command-Tab. In
-                        // that case, the best thing to do is synthesize the event
-                        // from the modifiers. But a challenge there is that we
-                        // might get multiple events.
                         return None;
                     }
                 }
@@ -322,7 +293,6 @@ impl KeyboardState {
                     if is_valid_key(&chars_ignoring) {
                         Key::Character(chars_ignoring)
                     } else {
-                        // There may be more heroic things we can do here.
                         Key::Unidentified
                     }
                 }

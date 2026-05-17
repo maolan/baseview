@@ -24,9 +24,6 @@ use crate::{DropData, DropEffect, Event, EventStatus, MouseEvent, PhyPoint, Poin
 
 use super::WindowState;
 
-// These function pointers have to be stored in a (const) variable before they can be transmuted
-// Transmuting is needed because winapi has a bug where the pt parameter has an incorrect
-// type `*const POINTL`
 #[allow(non_snake_case)]
 const DRAG_ENTER_PTR: unsafe extern "system" fn(
     this: *mut IDropTarget,
@@ -70,8 +67,6 @@ pub(super) struct DropTarget {
 
     window_state: Weak<WindowState>,
 
-    // These are cached since DragOver and DragLeave callbacks don't provide them,
-    // and handling drag move events gets awkward on the client end otherwise
     drag_position: Point,
     drop_data: DropData,
 }

@@ -20,8 +20,6 @@ use winapi::um::winuser::{
 
 use super::{GlConfig, GlError, Profile};
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt
-
 type WglCreateContextAttribsARB = extern "system" fn(HDC, HGLRC, *const i32) -> HGLRC;
 
 const WGL_CONTEXT_MAJOR_VERSION_ARB: i32 = 0x2091;
@@ -30,8 +28,6 @@ const WGL_CONTEXT_PROFILE_MASK_ARB: i32 = 0x9126;
 
 const WGL_CONTEXT_CORE_PROFILE_BIT_ARB: i32 = 0x00000001;
 const WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB: i32 = 0x00000002;
-
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt
 
 type WglChoosePixelFormatARB =
     extern "system" fn(HDC, *const i32, *const f32, u32, *mut i32, *mut u32) -> i32;
@@ -51,16 +47,10 @@ const WGL_STENCIL_BITS_ARB: i32 = 0x2023;
 const WGL_FULL_ACCELERATION_ARB: i32 = 0x2027;
 const WGL_TYPE_RGBA_ARB: i32 = 0x202B;
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_multisample.txt
-
 const WGL_SAMPLE_BUFFERS_ARB: i32 = 0x2041;
 const WGL_SAMPLES_ARB: i32 = 0x2042;
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_framebuffer_sRGB.txt
-
 const WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB: i32 = 0x20A9;
-
-// See https://www.khronos.org/registry/OpenGL/extensions/EXT/WGL_EXT_swap_control.txt
 
 type WglSwapIntervalEXT = extern "system" fn(i32) -> i32;
 
@@ -87,8 +77,6 @@ impl GlContext {
         if handle.hwnd.is_null() {
             return Err(GlError::InvalidWindowHandle);
         }
-
-        // Create temporary window and context to load function pointers
 
         let class_name_str = format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().to_simple());
         let mut class_name: Vec<WCHAR> = OsStr::new(&class_name_str).encode_wide().collect();
@@ -196,8 +184,6 @@ impl GlContext {
         ReleaseDC(hwnd_tmp, hdc_tmp);
         UnregisterClassW(class as *const WCHAR, hinstance);
         DestroyWindow(hwnd_tmp);
-
-        // Create actual context
 
         let hwnd = handle.hwnd as HWND;
 

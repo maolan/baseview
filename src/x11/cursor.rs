@@ -45,7 +45,7 @@ pub(super) fn get_xcursor(
     let loadn = |names: &[&str]| load_first_existing_cursor(conn, cursor_handle, names);
 
     let cursor = match cursor {
-        MouseCursor::Default => None, // catch this in the fallback case below
+        MouseCursor::Default => None,
 
         MouseCursor::Hand => loadn(&["hand2", "hand1"])?,
         MouseCursor::HandGrabbing => loadn(&["closedhand", "grabbing"])?,

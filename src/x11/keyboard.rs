@@ -1,21 +1,3 @@
-// Copyright 2020 The Druid Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Baseview modifications to druid code:
-// - collect functions from various files
-// - update imports, paths etc
-
 //! X11 keyboard handling
 
 use x11rb::protocol::xproto::{KeyButMask, KeyPressEvent, KeyReleaseEvent};
@@ -137,7 +119,7 @@ fn code_to_key(code: Code, m: Modifiers) -> Key {
         Code::IntlBackslash => s(m, "\\", "|"),
         Code::F11 => Key::F11,
         Code::F12 => Key::F12,
-        // This mapping is based on the picture in the w3c spec.
+
         Code::IntlRo => a("\\"),
         Code::Convert => Key::Convert,
         Code::KanaMode => Key::KanaMode,
@@ -341,8 +323,7 @@ fn hardware_keycode_to_code(hw_keycode: u16) -> Code {
         0x0094 => Code::LaunchApp2,
         0x0097 => Code::WakeUp,
         0x0098 => Code::LaunchApp1,
-        // key to right of volume controls on T430s produces 0x9C
-        // but no documentation of what it should map to :/
+
         0x00A3 => Code::LaunchMail,
         0x00A4 => Code::BrowserFavorites,
         0x00A6 => Code::BrowserBack,
@@ -360,16 +341,11 @@ fn hardware_keycode_to_code(hw_keycode: u16) -> Code {
     }
 }
 
-// Extracts the keyboard modifiers from, e.g., the `state` field of
-// `x11rb::protocol::xproto::ButtonPressEvent`
 pub(super) fn key_mods(mods: KeyButMask) -> Modifiers {
     let mut ret = Modifiers::default();
     let key_masks = [
         (KeyButMask::SHIFT, Modifiers::SHIFT),
         (KeyButMask::CONTROL, Modifiers::CONTROL),
-        // X11's mod keys are configurable, but this seems
-        // like a reasonable default for US keyboards, at least,
-        // where the "windows" key seems to be MOD_MASK_4.
         (KeyButMask::MOD1, Modifiers::ALT),
         (KeyButMask::MOD2, Modifiers::NUM_LOCK),
         (KeyButMask::MOD4, Modifiers::META),

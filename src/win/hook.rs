@@ -23,9 +23,6 @@ use winapi::{
 
 use crate::win::wnd_proc;
 
-// track all windows opened by this instance of baseview
-// we use an RwLock here since the vast majority of uses (event interceptions)
-// will only need to read from the HashSet
 static HOOK_STATE: LazyLock<RwLock<KeyboardHookState>> = LazyLock::new(|| RwLock::default());
 
 pub(crate) struct KeyboardHookHandle(HWNDWrapper);
@@ -39,11 +36,9 @@ struct KeyboardHookState {
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 struct HWNDWrapper(HWND);
 
-// SAFETY: it's a pointer behind an RwLock. we'll live
 unsafe impl Send for KeyboardHookState {}
 unsafe impl Sync for KeyboardHookState {}
 
-// SAFETY: we never access the underlying HWND ourselves, just use it as a HashSet entry
 unsafe impl Send for HWNDWrapper {}
 unsafe impl Sync for HWNDWrapper {}
 
@@ -53,20 +48,14 @@ impl Drop for KeyboardHookHandle {
     }
 }
 
-// initialize keyboard hook
-// some DAWs (particularly Ableton) intercept incoming keyboard messages,
-// but we're naughty so we intercept them right back
 pub(crate) fn init_keyboard_hook(hwnd: HWND) -> KeyboardHookHandle {
     let state = &mut *HOOK_STATE.write().unwrap();
 
-    // register hwnd to global window set
     state.open_windows.insert(HWNDWrapper(hwnd));
 
     if state.hook.is_some() {
-        // keyboard hook already exists, just return handle
         KeyboardHookHandle(HWNDWrapper(hwnd))
     } else {
-        // keyboard hook doesn't exist (no windows open before this), create it
         let new_hook = unsafe {
             SetWindowsHookExW(
                 WH_GETMESSAGE,
@@ -119,19 +108,15 @@ unsafe extern "system" fn keyboard_hook_callback(
     }
 }
 
-// check if `msg` is a keyboard message addressed to a window
-// in KeyboardHookState::open_windows, and intercept it if so
 unsafe fn offer_message_to_baseview(msg: *mut MSG) -> bool {
     let msg = &*msg;
 
-    // if this isn't a keyboard message, ignore it
     match msg.message {
         WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP | WM_CHAR | WM_SYSCHAR => {}
 
         _ => return false,
     }
 
-    // check if this is one of our windows. if so, intercept it
     if HOOK_STATE.read().unwrap().open_windows.contains(&HWNDWrapper(msg.hwnd)) {
         let _ = wnd_proc(msg.hwnd, msg.message, msg.wParam, msg.lParam);
 
