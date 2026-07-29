@@ -1,6 +1,6 @@
 [package]
 name = "maolan-baseview"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
     "William Light <git@wrl.lhiaudio.com>",
     "Charles Saracco <crsaracco@gmail.com>",
@@ -77,12 +77,6 @@ nix = { version = "0.31", features = ["poll"] }
 [target.'cfg(target_os="windows")'.dependencies]
 winapi = { version = "0.3.8", features = ["libloaderapi", "winuser", "windef", "minwindef", "guiddef", "combaseapi", "wingdi", "errhandlingapi", "ole2", "oleidl", "shellapi", "winerror"] }
 uuid = { version = "0.8", features = ["v4"], optional = true }
-
-[target.'cfg(target_os="macos")'.dependencies]
-cocoa = "0.24.0"
-core-foundation = "0.9.1"
-objc = "0.2.7"
-uuid = { version = "0.8", features = ["v4"] }
 
 [dev-dependencies]
 rtrb = "0.2"

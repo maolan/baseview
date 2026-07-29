@@ -1,4 +1,3 @@
-//! Access the native system.
 use crate::iced::graphics::compositor;
 
 pub use crate::iced::runtime::system;

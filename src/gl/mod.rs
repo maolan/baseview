@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::marker::PhantomData;
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+#[cfg(not(unix))]
 use raw_window_handle::RawWindowHandle;
 
 #[cfg(target_os = "windows")]
@@ -9,15 +9,10 @@ mod win;
 #[cfg(target_os = "windows")]
 use win as platform;
 
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(unix)]
 pub(crate) mod x11;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(unix)]
 pub(crate) use self::x11 as platform;
-
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos as platform;
 
 #[derive(Clone, Debug)]
 pub struct GlConfig {
@@ -73,7 +68,7 @@ pub struct GlContext {
 }
 
 impl GlContext {
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    #[cfg(not(unix))]
     pub(crate) unsafe fn create(
         parent: &RawWindowHandle, config: GlConfig,
     ) -> Result<GlContext, GlError> {
@@ -81,10 +76,7 @@ impl GlContext {
             .map(|context| GlContext { context, phantom: PhantomData })
     }
 
-    /// The X11 version needs to be set up in a different way compared to the Windows and macOS
-    /// versions. So the platform-specific versions should be used to construct the context within
-    /// baseview, and then this object can be passed to the user.
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[cfg(unix)]
     pub(crate) fn new(context: platform::GlContext) -> GlContext {
         GlContext { context, phantom: PhantomData }
     }
@@ -103,11 +95,5 @@ impl GlContext {
 
     pub fn swap_buffers(&self) {
         self.context.swap_buffers();
-    }
-
-    /// On macOS the `NSOpenGLView` needs to be resized separtely from our main view.
-    #[cfg(target_os = "macos")]
-    pub(crate) fn resize(&self, size: cocoa::foundation::NSSize) {
-        self.context.resize(size);
     }
 }

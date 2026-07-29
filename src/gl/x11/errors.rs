@@ -8,20 +8,17 @@ use std::os::raw::{c_int, c_uchar, c_ulong};
 use std::panic::AssertUnwindSafe;
 
 thread_local! {
-    /// Used as part of [`XErrorHandler::handle()`]. When an X11 error occurs during this function,
-    /// the error gets copied to this RefCell after which the program is allowed to resume. The
-    /// error can then be converted to a regular Rust Result value afterward.
+
+
     static CURRENT_X11_ERROR: RefCell<Option<XLibError>> = const { RefCell::new(None) };
 }
 
-/// A helper struct for safe X11 error handling
 pub struct XErrorHandler<'a> {
     display: *mut xlib::Display,
     error: &'a RefCell<Option<XLibError>>,
 }
 
 impl<'a> XErrorHandler<'a> {
-    /// Syncs and checks if any previous X11 calls from the given display returned an error
     pub fn check(&mut self) -> Result<(), XLibError> {
         unsafe {
             xlib::XSync(self.display, 0);
@@ -34,18 +31,9 @@ impl<'a> XErrorHandler<'a> {
         }
     }
 
-    /// Sets up a temporary X11 error handler for the duration of the given closure, and allows
-    /// that closure to check on the latest X11 error at any time.
-    ///
-    /// # Safety
-    ///
-    /// The given display pointer *must* be and remain valid for the duration of this function, as
-    /// well as for the duration of the given `handler` closure.
     pub unsafe fn handle<T, F: FnOnce(&mut XErrorHandler) -> T>(
         display: *mut xlib::Display, handler: F,
     ) -> T {
-        /// # Safety
-        /// The given display and error pointers *must* be valid for the duration of this function.
         unsafe extern "C" fn error_handler(
             _dpy: *mut xlib::Display, err: *mut xlib::XErrorEvent,
         ) -> i32 {
@@ -100,8 +88,6 @@ pub struct XLibError {
 }
 
 impl XLibError {
-    /// # Safety
-    /// The display pointer inside error must be valid for the duration of this call
     unsafe fn from_event(error: &xlib::XErrorEvent) -> Self {
         Self {
             type_: error.type_,
@@ -116,8 +102,6 @@ impl XLibError {
         }
     }
 
-    /// # Safety
-    /// The display pointer inside error must be valid for the duration of this call
     unsafe fn get_display_name(error: &xlib::XErrorEvent) -> Box<str> {
         let mut buf = [0; 255];
         unsafe {

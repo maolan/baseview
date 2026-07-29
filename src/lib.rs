@@ -1,8 +1,6 @@
-#[cfg(target_os = "macos")]
-mod macos;
 #[cfg(target_os = "windows")]
 mod win;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(unix)]
 mod x11;
 
 mod clipboard;

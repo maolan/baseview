@@ -93,13 +93,6 @@ where
     }
 }
 
-/// The underlying definition and configuration of an iced application.
-///
-/// You can use this API to create and run iced applications
-/// step by step—without coupling your logic to a trait
-/// or a specific type.
-///
-/// You can create an [`Application`] with the [`application`] helper.
 pub struct Application<P: Program> {
     raw: P,
     iced_settings: Settings,
@@ -107,7 +100,6 @@ pub struct Application<P: Program> {
 }
 
 impl<P: Program + Send> Application<P> {
-    /// Runs the [`Application`]
     pub fn run(self) -> impl Program
     where
         Self: 'static,
@@ -137,28 +129,23 @@ impl<P: Program + Send> Application<P> {
         program
     }
 
-    /// Sets the [`Settings`] that will be used to run the [`Application`].
     pub fn settings(self, settings: Settings) -> Self {
         Self { iced_settings: settings, ..self }
     }
 
-    /// Sets the [`Settings::antialiasing`] of the [`Application`].
     pub fn antialiasing(self, antialiasing: bool) -> Self {
         Self { iced_settings: Settings { antialiasing, ..self.iced_settings }, ..self }
     }
 
-    /// Sets the default [`Font`] of the [`Application`].
     pub fn default_font(self, default_font: Font) -> Self {
         Self { iced_settings: Settings { default_font, ..self.iced_settings }, ..self }
     }
 
-    /// Adds a font to the list of fonts that will be loaded at the start of the [`Application`].
     pub fn font(mut self, font: impl Into<Cow<'static, [u8]>>) -> Self {
         self.iced_settings.fonts.push(font.into());
         self
     }
 
-    /// Sets the title of the [`Application`].
     pub fn title(
         self, title: impl TitleFn<P::State>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
@@ -169,7 +156,6 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the subscription logic of the [`Application`].
     pub fn subscription(
         self, f: impl Fn(&P::State) -> Subscription<P::Message>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
@@ -180,7 +166,6 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the theme logic of the [`Application`].
     pub fn theme(
         self, f: impl ThemeFn<P::State, P::Theme>,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
@@ -191,7 +176,6 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the style logic of the [`Application`].
     pub fn style(
         self, f: impl Fn(&P::State, &P::Theme) -> theme::Style,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
@@ -202,7 +186,6 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the scale factor of the [`Application`].
     pub fn scale_factor(
         self, f: impl Fn(&P::State) -> f32,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>> {
@@ -213,7 +196,6 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the executor of the [`Application`].
     pub fn executor<E>(
         self,
     ) -> Application<impl Program<State = P::State, Message = P::Message, Theme = P::Theme>>
@@ -227,23 +209,11 @@ impl<P: Program + Send> Application<P> {
         }
     }
 
-    /// Sets the boot presets of the [`Application`].
-    ///
-    /// Presets can be used to override the default booting strategy
-    /// of your application during testing to create reproducible
-    /// environments.
     pub fn presets(self, presets: impl IntoIterator<Item = Preset<P::State, P::Message>>) -> Self {
         Self { presets: presets.into_iter().collect(), ..self }
     }
 }
 
-/// The underlying definition and configuration of an iced application.
-///
-/// You can use this API to create and run iced applications
-/// step by step—without coupling your logic to a trait
-/// or a specific type.
-///
-/// You can create an [`Application`] with the [`application`] helper.
 pub(crate) struct ApplicationInner<P: Program> {
     raw: P,
     iced_settings: Settings,
@@ -308,16 +278,7 @@ impl<P: Program> Program for ApplicationInner<P> {
     }
 }
 
-/// The logic to initialize the `State` of some [`Application`].
-///
-/// This trait is implemented for both `Fn() -> State` and
-/// `Fn() -> (State, Task<Message>)`.
-///
-/// In practice, this means that [`application`] can both take
-/// simple functions like `State::default` and more advanced ones
-/// that return a [`Task`].
 pub trait BootFn<State, Message> {
-    /// Initializes the [`Application`] state.
     fn boot(&self) -> (State, Task<Message>);
 }
 
@@ -331,9 +292,7 @@ where
     }
 }
 
-/// The initial state of some [`Application`].
 pub trait IntoBoot<State, Message> {
-    /// Turns some type into the initial state of some [`Application`].
     fn into_boot(self) -> (State, Task<Message>);
 }
 
@@ -349,14 +308,7 @@ impl<State, Message> IntoBoot<State, Message> for (State, Task<Message>) {
     }
 }
 
-/// The title logic of some [`Application`].
-///
-/// This trait is implemented both for `&static str` and
-/// any closure `Fn(&State) -> String`.
-///
-/// This trait allows the [`application`] builder to take any of them.
 pub trait TitleFn<State> {
-    /// Produces the title of the [`Application`].
     fn title(&self, state: &State) -> String;
 }
 
@@ -375,12 +327,7 @@ where
     }
 }
 
-/// The update logic of some [`Application`].
-///
-/// This trait allows the [`application`] builder to take any closure that
-/// returns any `Into<Task<Message>>`.
 pub trait UpdateFn<State, Message> {
-    /// Processes the message and updates the state of the [`Application`].
     fn update(&self, state: &mut State, message: Message) -> Task<Message>;
 }
 
@@ -400,12 +347,7 @@ where
     }
 }
 
-/// The view logic of some [`Application`].
-///
-/// This trait allows the [`application`] builder to take any closure that
-/// returns any `Into<Element<'_, Message>>`.
 pub trait ViewFn<'a, State, Message, Theme, Renderer> {
-    /// Produces the widget of the [`Application`].
     fn view(&self, state: &'a State) -> Element<'a, Message, Theme, Renderer>;
 }
 
@@ -421,19 +363,7 @@ where
     }
 }
 
-/// The theme logic of some [`Application`].
-///
-/// Any implementors of this trait can be provided as an argument to
-/// [`Application::theme`].
-///
-/// `iced` provides two implementors:
-/// - the built-in [`Theme`] itself
-/// - and any `Fn(&State) -> impl Into<Option<Theme>>`.
 pub trait ThemeFn<State, Theme> {
-    /// Returns the theme of the [`Application`] for the current state.
-    ///
-    /// If `None` is returned, `iced` will try to use a theme that
-    /// matches the system color scheme.
     fn theme(&self, state: &State) -> Option<Theme>;
 }
 

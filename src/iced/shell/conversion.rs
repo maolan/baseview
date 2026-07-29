@@ -199,7 +199,6 @@ fn baseview_mouse_button_to_iced(id: crate::MouseButton) -> IcedMouseButton {
     }
 }
 
-/// Converts a physical cursor position to a logical `Point`.
 pub fn cursor_position(position: PhyPoint, scale_factor: f32) -> Point {
     Point::new(
         (f64::from(position.x) * scale_factor as f64) as f32,
@@ -715,11 +714,6 @@ pub fn convert_raw_display_handle(
     use std::ptr::NonNull;
 
     match handle05 {
-        raw_window_handle::RawDisplayHandle::AppKit(_) => {
-            raw_window_handle_06::RawDisplayHandle::AppKit(
-                raw_window_handle_06::AppKitDisplayHandle::new(),
-            )
-        }
         raw_window_handle::RawDisplayHandle::Xlib(handle) => {
             raw_window_handle_06::RawDisplayHandle::Xlib(
                 raw_window_handle_06::XlibDisplayHandle::new(
@@ -749,16 +743,8 @@ pub fn convert_raw_window_handle(
     handle05: raw_window_handle::RawWindowHandle,
 ) -> raw_window_handle_06::RawWindowHandle {
     use std::num::{NonZeroIsize, NonZeroU32};
-    use std::ptr::NonNull;
 
     match handle05 {
-        raw_window_handle::RawWindowHandle::AppKit(handle) => {
-            raw_window_handle_06::RawWindowHandle::AppKit(
-                raw_window_handle_06::AppKitWindowHandle::new(
-                    NonNull::new(handle.ns_view).unwrap(),
-                ),
-            )
-        }
         raw_window_handle::RawWindowHandle::Xlib(handle) => {
             raw_window_handle_06::RawWindowHandle::Xlib(
                 raw_window_handle_06::XlibWindowHandle::new(handle.window),

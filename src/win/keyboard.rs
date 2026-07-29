@@ -1,5 +1,3 @@
-//! Key event handling.
-
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::mem;
@@ -31,7 +29,6 @@ use winapi::um::winuser::{
 
 const VK_ABNT_C2: INT = 0xc2;
 
-/// A (non-extended) virtual key code.
 type VkCode = u8;
 
 type ShiftState = u8;
@@ -39,7 +36,6 @@ const SHIFT_STATE_SHIFT: ShiftState = 1;
 const SHIFT_STATE_ALTGR: ShiftState = 2;
 const N_SHIFT_STATE: ShiftState = 4;
 
-/// Per-window keyboard state.
 pub(super) struct KeyboardState {
     hkl: HKL,
 
@@ -50,10 +46,6 @@ pub(super) struct KeyboardState {
     stash_utf16: Vec<u16>,
 }
 
-/// Virtual key codes that are considered printable.
-///
-/// This logic is borrowed from KeyboardLayout::GetKeyIndex
-/// in Mozilla.
 const PRINTABLE_VKS: &[RangeInclusive<VkCode>] = &[
     0x20..=0x20,
     0x30..=0x39,
@@ -65,14 +57,8 @@ const PRINTABLE_VKS: &[RangeInclusive<VkCode>] = &[
     0xE1..=0xE4,
 ];
 
-/// Bits of lparam indicating scan code, including extended bit.
 const SCAN_MASK: LPARAM = 0x1ff_0000;
 
-/// Determine whether there are more messages in the queue for this key event.
-///
-/// When this function returns `false`, there is another message in the queue
-/// with a matching scan code, therefore it is reasonable to stash the data
-/// from this message and defer til later to actually produce the event.
 unsafe fn is_last_message(hwnd: HWND, msg: UINT, lparam: LPARAM) -> bool {
     let expected_msg = match msg {
         WM_KEYDOWN | WM_CHAR => WM_CHAR,
@@ -93,10 +79,6 @@ const MODIFIER_MAP: &[(INT, Modifiers, SHORT)] = &[
     (VK_SHIFT, Modifiers::SHIFT, 0x80),
 ];
 
-/// Convert scan code to W3C standard code.
-///
-/// It's hard to get an authoritative source for this; it's mostly based
-/// on NativeKeyToDOMCodeName.h in Mozilla.
 fn scan_to_code(scan_code: u32) -> Code {
     use Code::*;
     match scan_code {
@@ -342,9 +324,6 @@ fn code_unit_to_key(code_unit: u32) -> Key {
     }
 }
 
-/// Get location from virtual key code.
-///
-/// This logic is based on NativeKey::GetKeyLocation from Mozilla.
 fn vk_to_location(vk: VkCode, is_extended: bool) -> Location {
     match vk as INT {
         VK_LSHIFT | VK_LCONTROL | VK_LMENU | VK_LWIN => Location::Left,
@@ -366,10 +345,6 @@ fn vk_to_location(vk: VkCode, is_extended: bool) -> Location {
 }
 
 impl KeyboardState {
-    /// Create a new keyboard state.
-    ///
-    /// There should be one of these per window. It loads the current keyboard
-    /// layout and retains some mapping information from it.
     pub(crate) fn new() -> KeyboardState {
         unsafe {
             let hkl = GetKeyboardLayout(0);
@@ -385,38 +360,6 @@ impl KeyboardState {
         }
     }
 
-    /// Process one message from the platform.
-    ///
-    /// This is the main interface point for generating cooked keyboard events
-    /// from raw platform messages. It should be called for each relevant message,
-    /// which comprises: `WM_KEYDOWN`, `WM_KEYUP`, `WM_CHAR`, `WM_SYSKEYDOWN`,
-    /// `WM_SYSKEYUP`, `WM_SYSCHAR`, and `WM_INPUTLANGCHANGE`.
-    ///
-    /// As a general theory, many keyboard events generate a sequence of platform
-    /// messages. In these cases, we stash information from all messages but the
-    /// last, and generate the event from the last (using `PeekMessage` to detect
-    /// that case). Mozilla handling is slightly different; it actually tries to
-    /// do the processing on the first message, fetching the subsequent messages
-    /// from the queue. We believe our handling is simpler and more robust.
-    ///
-    /// A simple example of a multi-message sequence is the key "=". In a US layout,
-    /// we'd expect `WM_KEYDOWN` with `wparam = VK_OEM_PLUS` and lparam encoding the
-    /// keycode that translates into `Code::Equal`, followed by a `WM_CHAR` with
-    /// `wparam = b"="` and the same scancode.
-    ///
-    /// A more complex example of a multi-message sequence is the second press of
-    /// that key in a German layout, where it's mapped to the dead key for accent
-    /// acute. Then we expect `WM_KEYDOWN` with `wparam = VK_OEM_6` followed by
-    /// two `WM_CHAR` with `wparam = 0xB4` (corresponding to U+00B4 = acute accent).
-    /// In this case, the result (produced on the final message in the sequence) is
-    /// a key event with `key = Key::Character("´´")`, which also matches browser
-    /// behavior.
-    ///
-    /// # Safety
-    ///
-    /// The `hwnd` argument must be a valid `HWND`. Similarly, the `lparam` must be
-    /// a valid `HKL` reference in the `WM_INPUTLANGCHANGE` message. Actual danger
-    /// is likely low, though.
     pub(crate) unsafe fn process_message(
         &mut self, hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM,
     ) -> Option<KeyboardEvent> {
@@ -514,17 +457,6 @@ impl KeyboardState {
         }
     }
 
-    /// Get the modifier state.
-    ///
-    /// This function is designed to be called from a message handler, and
-    /// gives the modifier state at the time of the message (ie is the
-    /// synchronous variant). See [`GetKeyState`] for more context.
-    ///
-    /// The interpretation of modifiers depends on the keyboard layout, as
-    /// some layouts have [AltGr] and others do not.
-    ///
-    /// [`GetKeyState`]: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeystate
-    /// [AltGr]: https://en.wikipedia.org/wiki/AltGr_key
     pub(crate) fn get_modifiers(&self) -> Modifiers {
         unsafe {
             let mut modifiers = Modifiers::empty();
@@ -541,8 +473,6 @@ impl KeyboardState {
         }
     }
 
-    /// The same as [Self::get_modifiers()], but it reads the Ctrl and Shift state from a mouse
-    /// event's wParam parameter. Saves two calls to [GetKeyState()].
     pub(crate) fn get_modifiers_from_mouse_wparam(&self, wparam: WPARAM) -> Modifiers {
         unsafe {
             let mut modifiers = Modifiers::empty();
@@ -565,14 +495,6 @@ impl KeyboardState {
         }
     }
 
-    /// Load a keyboard layout.
-    ///
-    /// We need to retain a map of virtual key codes in various modifier
-    /// states, because it's not practical to query that at keyboard event
-    /// time (the main culprit is that `ToUnicodeEx` is stateful).
-    ///
-    /// The logic is based on Mozilla KeyboardLayout::LoadLayout but is
-    /// considerably simplified.
     fn load_keyboard_layout(&mut self) {
         unsafe {
             self.key_vals.clear();
@@ -650,17 +572,10 @@ impl KeyboardState {
         }
     }
 
-    /// Map a virtual key code to a code unit, also indicate if dead key.
-    ///
-    /// Bit 31 is set if the mapping is to a dead key. The bottom bits contain the code unit.
     fn map_vk(&self, vk: VkCode) -> u32 {
         unsafe { MapVirtualKeyExW(vk as _, MAPVK_VK_TO_CHAR, self.hkl) }
     }
 
-    /// Refine a virtual key code to distinguish left and right.
-    ///
-    /// This only does the mapping if the original code is ambiguous, as otherwise the
-    /// virtual key code reported in `wparam` is more reliable.
     fn refine_vk(&self, vk: VkCode, mut scan_code: u32) -> VkCode {
         match vk as INT {
             0 | VK_SHIFT | VK_CONTROL | VK_MENU => {

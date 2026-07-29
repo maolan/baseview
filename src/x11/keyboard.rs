@@ -1,15 +1,9 @@
-//! X11 keyboard handling
-
 use x11rb::protocol::xproto::{KeyButMask, KeyPressEvent, KeyReleaseEvent};
 
 use keyboard_types::*;
 
 use crate::keyboard::code_to_location;
 
-/// Convert a hardware scan code to a key.
-///
-/// Note: this is a hardcoded layout. We need to detect the user's
-/// layout from the system and apply it.
 fn code_to_key(code: Code, m: Modifiers) -> Key {
     fn a(s: &str) -> Key {
         Key::Character(s.into())
@@ -183,13 +177,7 @@ fn code_to_key(code: Code, m: Modifiers) -> Key {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-/// Map hardware keycode to code.
-///
-/// In theory, the hardware keycode is device dependent, but in
-/// practice it's probably pretty reliable.
-///
-/// The logic is based on NativeKeyToDOMCodeName.h in Mozilla.
+#[cfg(unix)]
 fn hardware_keycode_to_code(hw_keycode: u16) -> Code {
     match hw_keycode {
         0x0009 => Code::Escape,

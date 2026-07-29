@@ -21,9 +21,6 @@ x11rb::atom_manager! {
     }
 }
 
-/// A very light abstraction around the XCB connection.
-///
-/// Keeps track of the xcb connection itself and the xlib display ID that was used to connect.
 pub struct XcbConnection {
     pub(crate) dpy: *mut Display,
     pub(crate) conn: XCBConnection,

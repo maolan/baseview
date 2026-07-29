@@ -1,5 +1,3 @@
-//! An [`Application`] that receives an [`Instant`] in update logic.
-
 use crate::iced::application::{Application, BootFn, ViewFn};
 use crate::iced::program;
 use crate::iced::theme;
@@ -9,17 +7,6 @@ use crate::iced::{Element, Program, Settings, Subscription, Task};
 
 use iced_debug as debug;
 
-/// Creates an [`Application`] with an `update` function that also
-/// takes the [`Instant`] of each `Message`.
-///
-/// This constructor is useful to create animated applications that
-/// are _pure_ (e.g. without relying on side-effect calls like [`Instant::now`]).
-///
-/// Purity is needed when you want your application to end up in the
-/// same exact state given the same history of messages. This property
-/// enables proper time traveling debugging with [`comet`].
-///
-/// [`comet`]: https://github.com/iced-rs/comet
 pub fn timed<State, Message, Theme, Renderer>(
     boot: impl BootFn<State, Message>, update: impl UpdateFn<State, Message>,
     subscription: impl Fn(&State) -> Subscription<Message>,
@@ -119,12 +106,7 @@ where
     }
 }
 
-/// The update logic of some timed [`Application`].
-///
-/// This is like [`application::UpdateFn`](super::UpdateFn),
-/// but it also takes an [`Instant`].
 pub trait UpdateFn<State, Message> {
-    /// Processes the message and updates the state of the [`Application`].
     fn update(&self, state: &mut State, message: Message, now: Instant)
     -> impl Into<Task<Message>>;
 }

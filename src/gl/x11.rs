@@ -48,29 +48,17 @@ pub struct GlContext {
     context: glx::GLXContext,
 }
 
-/// The frame buffer configuration along with the general OpenGL configuration to somewhat minimize
-/// misuse.
 pub struct FbConfig {
     gl_config: GlConfig,
     fb_config: *mut glx::__GLXFBConfigRec,
 }
 
-/// The configuration a window should be created with after calling
-/// [GlContext::get_fb_config_and_visual].
 pub struct WindowConfig {
     pub depth: u8,
     pub visual: u32,
 }
 
 impl GlContext {
-    /// Creating an OpenGL context under X11 works slightly different. Different OpenGL
-    /// configurations require different framebuffer configurations, and to be able to use that
-    /// context with a window the window needs to be created with a matching visual. This means that
-    /// you need to decide on the framebuffer config before creating the window, ask the X11 server
-    /// for a matching visual for that framebuffer config, crate the window with that visual, and
-    /// only then create the OpenGL context.
-    ///
-    /// Use [Self::get_fb_config_and_visual] to create both of these things.
     pub unsafe fn create(
         window: c_ulong, display: *mut xlib::_XDisplay, config: FbConfig,
     ) -> Result<GlContext, GlError> {
@@ -148,9 +136,6 @@ impl GlContext {
         })
     }
 
-    /// Find a matching framebuffer config and window visual for the given OpenGL configuration.
-    /// This needs to be passed to [Self::create] along with a handle to a window that was created
-    /// using the visual also returned from this function.
     pub unsafe fn get_fb_config_and_visual(
         display: *mut xlib::_XDisplay, config: GlConfig,
     ) -> Result<(FbConfig, WindowConfig), GlError> {

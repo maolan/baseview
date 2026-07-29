@@ -10,7 +10,6 @@ use iced_runtime::{
 use iced_widget::graphics::shell::Notifier;
 use std::pin::Pin;
 
-/// An event loop proxy that implements `Sink`.
 #[derive(Debug)]
 pub struct Proxy<T: 'static> {
     sender: mpsc::UnboundedSender<Action<T>>,
@@ -23,23 +22,14 @@ impl<T: 'static> Clone for Proxy<T> {
 }
 
 impl<T: 'static> Proxy<T> {
-    /// Creates a new [`Proxy`] from an `mpsc::Sender`.
     pub fn new(sender: mpsc::UnboundedSender<Action<T>>) -> Self {
         Self { sender }
     }
 
-    /// Sends a value to the event loop.
-    ///
-    /// Note: This skips the backpressure mechanism with an unbounded
-    /// channel. Use sparingly!
     pub fn send(&self, value: T) {
         self.send_action(Action::Output(value));
     }
 
-    /// Sends an action to the event loop.
-    ///
-    /// Note: This skips the backpressure mechanism with an unbounded
-    /// channel. Use sparingly!
     pub fn send_action(&self, action: Action<T>) {
         let _ = self.sender.unbounded_send(action);
     }

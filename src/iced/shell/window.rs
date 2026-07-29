@@ -75,11 +75,7 @@ where
                     window.focus();
                 }
                 WindowCommand::SetCursorIcon(cursor) => {
-                    #[cfg(not(target_os = "macos"))]
                     window.set_mouse_cursor(cursor);
-
-                    #[cfg(target_os = "macos")]
-                    let _ = cursor;
                 }
             }
         }
@@ -143,51 +139,22 @@ impl<P: Program + 'static> WindowHandler for IcedWindowHandler<P> {
     }
 }
 
-/// Closes the application window.
 pub fn close<T>() -> Task<T> {
     iced_runtime::window::close(Id::unique())
 }
 
-/// Resize the application window to the given logical dimensions.
 pub fn resize<T>(new_size: Size) -> Task<T> {
     iced_runtime::window::resize(Id::unique(), new_size)
 }
 
-/// Brings the application window to the front and sets input focus. Has no effect if the window
-/// is already in focus, minimized, or not visible.
-///
-/// This [`Task`] steals input focus from other applications. Do not use this method unless
-/// you are certain that's what the user wants. Focus stealing can cause an extremely disruptive
-/// user experience.
 pub fn gain_focus<T>() -> Task<T> {
     iced_runtime::window::gain_focus(Id::unique())
 }
 
-/// Returns true if the provided event should cause an [`Application`] to
-/// exit.
 pub fn requests_exit(event: &crate::Event) -> bool {
-    match event {
-        crate::Event::Window(crate::WindowEvent::WillClose) => true,
-        #[cfg(target_os = "macos")]
-        crate::Event::Keyboard(event) => {
-            if event.code == keyboard_types::Code::KeyQ
-                && event.modifiers == keyboard_types::Modifiers::META
-                && event.state == keyboard_types::KeyState::Down
-            {
-                return true;
-            }
-
-            false
-        }
-        _ => false,
-    }
+    matches!(event, crate::Event::Window(crate::WindowEvent::WillClose))
 }
 
-/// Use this to send custom events to the iced window.
-///
-/// Please note this channel is ***not*** realtime-safe and should never be
-/// be used to send events from the audio thread. Use a realtime-safe ring
-/// buffer instead.
 #[allow(missing_debug_implementations)]
 pub struct WindowHandle<Message: 'static + Send> {
     bv_handle: crate::WindowHandle,
@@ -201,31 +168,18 @@ impl<Message: 'static + Send> WindowHandle<Message> {
         Self { bv_handle, tx }
     }
 
-    /// Send a custom `crate::Event` to the window.
-    ///
-    /// Please note this channel is ***not*** realtime-safe and should never be
-    /// be used to send events from the audio thread. Use a realtime-safe ring
-    /// buffer instead.
     pub fn send_baseview_event(&mut self, event: crate::Event) -> Result<(), SendError> {
         self.tx.start_send(RuntimeEvent::Baseview((event, false)))
     }
 
-    /// Send a custom message to the window.
-    ///
-    /// Please note this channel is ***not*** realtime-safe and should never be
-    /// used to send events from the audio thread. Use a realtime-safe ring
-    /// buffer instead.
     pub fn send_message(&mut self, msg: Message) -> Result<(), SendError> {
         self.tx.start_send(RuntimeEvent::UserEvent(iced_runtime::Action::Output(msg)))
     }
 
-    /// Signal the window to close.
     pub fn close_window(&mut self) {
         self.bv_handle.close();
     }
 
-    /// Returns `true` if the window is still open, and `false` if the window
-    /// was closed/dropped.
     pub fn is_open(&self) -> bool {
         self.bv_handle.is_open()
     }
@@ -250,7 +204,6 @@ pub enum WindowCommand {
     SetCursorIcon(crate::MouseCursor),
 }
 
-/// Used to request things from the `baseview` window.
 pub struct WindowQueue {
     tx: mpsc::UnboundedSender<WindowCommand>,
 }

@@ -39,10 +39,6 @@ use window::{
 
 pub use proxy::Proxy;
 
-/// An atomic flag used to notify the program when it should poll for new updates
-/// and redraw (i.e. as a result of the host updating parameters or the audio thread
-/// updating the state of meters). This flag is polled every frame right before
-/// drawing. If the flag is set then the [`poll_events`] subscription will be called.
 #[derive(Debug, Clone)]
 pub struct PollSubNotifier {
     notify: Arc<AtomicBool>,
@@ -86,9 +82,6 @@ where
 const POLL_EVENT: iced_core::Event =
     iced_core::Event::Window(iced_core::window::Event::Moved(Point::ORIGIN));
 
-/// A subscription which notifies the program when it should poll for new updates
-/// and redraw (i.e. as a result of the host updating parameters or the audio thread
-/// updating the state of meters).
 pub fn poll_events() -> Subscription<()> {
     iced_futures::event::listen_raw(|event, _status, _window| match event {
         POLL_EVENT => Some(()),
@@ -96,15 +89,6 @@ pub fn poll_events() -> Subscription<()> {
     })
 }
 
-/// Open a new window that blocks the current thread until the window is destroyed.
-///
-/// * `settings` - The settings of the window.
-/// * `notifier` - An atomic flag used to notify the program when it should
-///   poll for new updates and redraw (i.e. as a result of the host updating parameters
-///   or the audio thread updating the state of meters). This flag is polled every frame
-///   right before drawing. If the flag is set then the [`poll_events`] subscription
-///   will be called.
-/// * `build_program` - The function which builds the Iced program.
 pub fn open_blocking<P, B>(
     settings: IcedBaseviewSettings, notifier: PollSubNotifier, build_program: B,
 ) where
@@ -122,16 +106,6 @@ pub fn open_blocking<P, B>(
     );
 }
 
-/// Open a new child window.
-///
-/// * `parent` - The parent window.
-/// * `settings` - The settings of the window.
-/// * `notifier` - An atomic flag used to notify the program when it should
-///   poll for new updates and redraw (i.e. as a result of the host updating parameters
-///   or the audio thread updating the state of meters). This flag is polled every frame
-///   right before drawing. If the flag is set then the [`poll_events`] subscription
-///   will be called.
-/// * `build_program` - The function which builds the Iced program.
 pub fn open_parented<W, P, B>(
     parent: &W, settings: IcedBaseviewSettings, notifier: PollSubNotifier, build_program: B,
 ) -> WindowHandle<P::Message>
@@ -156,7 +130,6 @@ where
     WindowHandle::new(bv_handle, sender)
 }
 
-/// Runs a [`Program`] with the provided settings.
 fn run_inner<P>(
     window: &mut crate::Window<'_>, settings: IcedBaseviewSettings, program: P,
     event_sender: mpsc::UnboundedSender<RuntimeEvent<P::Message>>,
@@ -759,7 +732,6 @@ where
     )
 }
 
-/// Builds a window's [`UserInterface`] for the [`Program`].
 fn build_user_interface<'a, P: Program>(
     program: &'a iced_program::Instance<P>, cache: user_interface::Cache,
     renderer: &mut P::Renderer, size: Size, id: iced_core::window::Id,

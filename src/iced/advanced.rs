@@ -1,13 +1,12 @@
-//! Leverage advanced concepts like custom widgets.
 pub mod subscription {
-    //! Write your own subscriptions.
+
     pub use crate::iced::runtime::futures::subscription::{
         Event, EventStream, Hasher, Recipe, from_recipe, into_recipes,
     };
 }
 
 pub mod widget {
-    //! Create custom widgets and operate on them.
+
     pub use crate::iced::core::widget::*;
     pub use crate::iced::runtime::task::widget as operate;
 }

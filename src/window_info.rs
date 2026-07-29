@@ -1,4 +1,3 @@
-/// The info about the window
 #[derive(Debug, Copy, Clone)]
 pub struct WindowInfo {
     logical_size: Size,
@@ -30,28 +29,23 @@ impl WindowInfo {
         Self { logical_size, physical_size, scale, scale_recip }
     }
 
-    /// The logical size of the window
     pub fn logical_size(&self) -> Size {
         self.logical_size
     }
 
-    /// The physical size of the window
     pub fn physical_size(&self) -> PhySize {
         self.physical_size
     }
 
-    /// The scale factor of the window
     pub fn scale(&self) -> f64 {
         self.scale
     }
 
-    /// The reciprocal of the scale factor of the window
     pub fn scale_recip(&self) -> f64 {
         self.scale_recip
     }
 }
 
-/// A point in logical coordinates
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
     pub x: f64,
@@ -59,12 +53,10 @@ pub struct Point {
 }
 
 impl Point {
-    /// Create a new point in logical coordinates
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
 
-    /// Convert to actual physical coordinates
     #[inline]
     pub fn to_physical(&self, window_info: &WindowInfo) -> PhyPoint {
         PhyPoint {
@@ -74,7 +66,6 @@ impl Point {
     }
 }
 
-/// A point in actual physical coordinates
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PhyPoint {
     pub x: i32,
@@ -82,12 +73,10 @@ pub struct PhyPoint {
 }
 
 impl PhyPoint {
-    /// Create a new point in actual physical coordinates
     pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }
     }
 
-    /// Convert to logical coordinates
     #[inline]
     pub fn to_logical(&self, window_info: &WindowInfo) -> Point {
         Point {
@@ -97,7 +86,6 @@ impl PhyPoint {
     }
 }
 
-/// A size in logical coordinates
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size {
     pub width: f64,
@@ -105,12 +93,10 @@ pub struct Size {
 }
 
 impl Size {
-    /// Create a new size in logical coordinates
     pub fn new(width: f64, height: f64) -> Self {
         Self { width, height }
     }
 
-    /// Convert to actual physical size
     #[inline]
     pub fn to_physical(&self, window_info: &WindowInfo) -> PhySize {
         PhySize {
@@ -120,7 +106,6 @@ impl Size {
     }
 }
 
-/// An actual size in physical coordinates
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PhySize {
     pub width: u32,
@@ -128,12 +113,10 @@ pub struct PhySize {
 }
 
 impl PhySize {
-    /// Create a new size in actual physical coordinates
     pub fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
 
-    /// Convert to logical size
     #[inline]
     pub fn to_logical(&self, window_info: &WindowInfo) -> Size {
         Size {

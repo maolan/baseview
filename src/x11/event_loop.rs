@@ -110,9 +110,6 @@ impl EventLoop {
 
     fn handle_xcb_event(&mut self, event: XEvent) {
         match event {
-            ////
-
-            ////
             XEvent::ClientMessage(event)
                 if event.format == 32
                     && event.data.as_data32()[0]
@@ -131,9 +128,6 @@ impl EventLoop {
                 }
             }
 
-            ////
-
-            ////
             XEvent::MotionNotify(event) => {
                 let physical_pos = PhyPoint::new(event.event_x as i32, event.event_y as i32);
                 let logical_pos = physical_pos.to_logical(&self.window.window_info);
@@ -210,9 +204,6 @@ impl EventLoop {
                 );
             }
 
-            ////
-
-            ////
             XEvent::KeyPress(event) => {
                 self.handler.on_event(
                     &mut crate::Window::new(Window { inner: &self.window }),

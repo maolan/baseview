@@ -1,19 +1,10 @@
-//! Configure your application.
 use crate::{Size, WindowOpenOptions, WindowScalePolicy};
 
-/// Any settings specific to `iced_baseview`.
 pub struct IcedBaseviewSettings {
-    /// The [`Window`] settings.
     pub window: WindowOpenOptions,
 
-    /// Ignore key inputs, except for modifier keys such as SHIFT and ALT
     pub ignore_non_modifier_keys: bool,
 
-    /// Always redraw whenever the baseview window updates instead of only when iced wants to update
-    /// the window. This works around a current baseview limitation where it does not support
-    /// trigger a redraw on window visibility change (which may cause blank windows when opening or
-    /// reopening the editor) and an iced limitation where it's not possible to have animations
-    /// without using an asynchronous timer stream to send redraw messages to the application.
     pub always_redraw: bool,
 }
 
