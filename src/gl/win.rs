@@ -74,7 +74,7 @@ impl GlContext {
             return Err(GlError::InvalidWindowHandle);
         };
 
-        if handle.hwnd.is_null() {
+        if handle.hwnd.get() == 0 {
             return Err(GlError::InvalidWindowHandle);
         }
 
@@ -185,7 +185,7 @@ impl GlContext {
         UnregisterClassW(class as *const WCHAR, hinstance);
         DestroyWindow(hwnd_tmp);
 
-        let hwnd = handle.hwnd as HWND;
+        let hwnd = handle.hwnd.get() as HWND;
 
         let hdc = GetDC(hwnd);
 

@@ -12,7 +12,7 @@ use iced_runtime::futures::futures::{
 };
 pub use iced_runtime::window::{close_events, close_requests, events, open_events, resize_events};
 use iced_widget::core::Size;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HandleError, HasWindowHandle, WindowHandle as RwhWindowHandle};
 
 use tracing::error;
 
@@ -191,9 +191,9 @@ impl<Message: 'static + Send> Drop for WindowHandle<Message> {
     }
 }
 
-unsafe impl<Message: 'static + Send> HasRawWindowHandle for WindowHandle<Message> {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        self.bv_handle.raw_window_handle()
+impl<Message: 'static + Send> HasWindowHandle for WindowHandle<Message> {
+    fn window_handle(&self) -> Result<RwhWindowHandle<'_>, HandleError> {
+        self.bv_handle.window_handle()
     }
 }
 

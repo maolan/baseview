@@ -8,7 +8,7 @@ use iced_futures::{Runtime, futures::channel::mpsc, subscription};
 use iced_program::Program;
 use iced_runtime::{Action, UserInterface, user_interface};
 use iced_widget::graphics::Viewport;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -110,7 +110,7 @@ pub fn open_parented<W, P, B>(
     parent: &W, settings: IcedBaseviewSettings, notifier: PollSubNotifier, build_program: B,
 ) -> WindowHandle<P::Message>
 where
-    W: HasRawWindowHandle,
+    W: HasWindowHandle,
     P: Program + 'static,
     B: Send + 'static + FnOnce() -> P,
 {
@@ -452,11 +452,11 @@ where
                     window.redraw_requested = true;
                 }
 
-                if let Some(redraw_at) = window.redraw_at {
-                    if redraw_at <= Instant::now() {
-                        window.redraw_requested = true;
-                        window.redraw_at = None;
-                    }
+                if let Some(redraw_at) = window.redraw_at
+                    && redraw_at <= Instant::now()
+                {
+                    window.redraw_requested = true;
+                    window.redraw_at = None;
                 }
 
                 if window.surface_version != window.state.surface_version() {

@@ -92,11 +92,11 @@ impl EventLoop {
                 }
             }
 
-            if let Some(parent_handle) = &self.parent_handle {
-                if parent_handle.parent_did_drop() {
-                    self.handle_must_close();
-                    self.window.close_requested.set(false);
-                }
+            if let Some(parent_handle) = &self.parent_handle
+                && parent_handle.parent_did_drop()
+            {
+                self.handle_must_close();
+                self.window.close_requested.set(false);
             }
 
             if self.window.close_requested.get() {

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::RangeInclusive;
 
-use keyboard_types::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers};
+use keyboard_types::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
 
 use winapi::shared::minwindef::{HKL, INT, LPARAM, UINT, WPARAM};
 use winapi::shared::ntdef::SHORT;
@@ -60,14 +60,16 @@ const PRINTABLE_VKS: &[RangeInclusive<VkCode>] = &[
 const SCAN_MASK: LPARAM = 0x1ff_0000;
 
 unsafe fn is_last_message(hwnd: HWND, msg: UINT, lparam: LPARAM) -> bool {
-    let expected_msg = match msg {
-        WM_KEYDOWN | WM_CHAR => WM_CHAR,
-        WM_SYSKEYDOWN | WM_SYSCHAR => WM_SYSCHAR,
-        _ => unreachable!(),
-    };
-    let mut msg = mem::zeroed();
-    let avail = PeekMessageW(&mut msg, hwnd, expected_msg, expected_msg, PM_NOREMOVE);
-    avail == 0 || msg.lParam & SCAN_MASK != lparam & SCAN_MASK
+    unsafe {
+        let expected_msg = match msg {
+            WM_KEYDOWN | WM_CHAR => WM_CHAR,
+            WM_SYSKEYDOWN | WM_SYSCHAR => WM_SYSCHAR,
+            _ => unreachable!(),
+        };
+        let mut msg = mem::zeroed();
+        let avail = PeekMessageW(&mut msg, hwnd, expected_msg, expected_msg, PM_NOREMOVE);
+        avail == 0 || msg.lParam & SCAN_MASK != lparam & SCAN_MASK
+    }
 }
 
 const MODIFIER_MAP: &[(INT, Modifiers, SHORT)] = &[
@@ -224,103 +226,103 @@ fn scan_to_code(scan_code: u32) -> Code {
 
 fn vk_to_key(vk: VkCode) -> Option<Key> {
     Some(match vk as INT {
-        VK_CANCEL => Key::Cancel,
-        VK_BACK => Key::Backspace,
-        VK_TAB => Key::Tab,
-        VK_CLEAR => Key::Clear,
-        VK_RETURN => Key::Enter,
-        VK_SHIFT | VK_LSHIFT | VK_RSHIFT => Key::Shift,
-        VK_CONTROL | VK_LCONTROL | VK_RCONTROL => Key::Control,
-        VK_MENU | VK_LMENU | VK_RMENU => Key::Alt,
-        VK_PAUSE => Key::Pause,
-        VK_CAPITAL => Key::CapsLock,
+        VK_CANCEL => Key::Named(NamedKey::Cancel),
+        VK_BACK => Key::Named(NamedKey::Backspace),
+        VK_TAB => Key::Named(NamedKey::Tab),
+        VK_CLEAR => Key::Named(NamedKey::Clear),
+        VK_RETURN => Key::Named(NamedKey::Enter),
+        VK_SHIFT | VK_LSHIFT | VK_RSHIFT => Key::Named(NamedKey::Shift),
+        VK_CONTROL | VK_LCONTROL | VK_RCONTROL => Key::Named(NamedKey::Control),
+        VK_MENU | VK_LMENU | VK_RMENU => Key::Named(NamedKey::Alt),
+        VK_PAUSE => Key::Named(NamedKey::Pause),
+        VK_CAPITAL => Key::Named(NamedKey::CapsLock),
 
-        VK_KANA => Key::KanaMode,
-        VK_JUNJA => Key::JunjaMode,
-        VK_FINAL => Key::FinalMode,
-        VK_KANJI => Key::KanjiMode,
-        VK_ESCAPE => Key::Escape,
-        VK_NONCONVERT => Key::NonConvert,
-        VK_ACCEPT => Key::Accept,
-        VK_PRIOR => Key::PageUp,
-        VK_NEXT => Key::PageDown,
-        VK_END => Key::End,
-        VK_HOME => Key::Home,
-        VK_LEFT => Key::ArrowLeft,
-        VK_UP => Key::ArrowUp,
-        VK_RIGHT => Key::ArrowRight,
-        VK_DOWN => Key::ArrowDown,
-        VK_SELECT => Key::Select,
-        VK_PRINT => Key::Print,
-        VK_EXECUTE => Key::Execute,
-        VK_SNAPSHOT => Key::PrintScreen,
-        VK_INSERT => Key::Insert,
-        VK_DELETE => Key::Delete,
-        VK_HELP => Key::Help,
-        VK_LWIN | VK_RWIN => Key::Meta,
-        VK_APPS => Key::ContextMenu,
-        VK_SLEEP => Key::Standby,
-        VK_F1 => Key::F1,
-        VK_F2 => Key::F2,
-        VK_F3 => Key::F3,
-        VK_F4 => Key::F4,
-        VK_F5 => Key::F5,
-        VK_F6 => Key::F6,
-        VK_F7 => Key::F7,
-        VK_F8 => Key::F8,
-        VK_F9 => Key::F9,
-        VK_F10 => Key::F10,
-        VK_F11 => Key::F11,
-        VK_F12 => Key::F12,
-        VK_NUMLOCK => Key::NumLock,
-        VK_SCROLL => Key::ScrollLock,
-        VK_BROWSER_BACK => Key::BrowserBack,
-        VK_BROWSER_FORWARD => Key::BrowserForward,
-        VK_BROWSER_REFRESH => Key::BrowserRefresh,
-        VK_BROWSER_STOP => Key::BrowserStop,
-        VK_BROWSER_SEARCH => Key::BrowserSearch,
-        VK_BROWSER_FAVORITES => Key::BrowserFavorites,
-        VK_BROWSER_HOME => Key::BrowserHome,
-        VK_VOLUME_MUTE => Key::AudioVolumeMute,
-        VK_VOLUME_DOWN => Key::AudioVolumeDown,
-        VK_VOLUME_UP => Key::AudioVolumeUp,
-        VK_MEDIA_NEXT_TRACK => Key::MediaTrackNext,
-        VK_MEDIA_PREV_TRACK => Key::MediaTrackPrevious,
-        VK_MEDIA_STOP => Key::MediaStop,
-        VK_MEDIA_PLAY_PAUSE => Key::MediaPlayPause,
-        VK_LAUNCH_MAIL => Key::LaunchMail,
-        VK_LAUNCH_MEDIA_SELECT => Key::LaunchMediaPlayer,
-        VK_LAUNCH_APP1 => Key::LaunchApplication1,
-        VK_LAUNCH_APP2 => Key::LaunchApplication2,
-        VK_OEM_ATTN => Key::Alphanumeric,
-        VK_CONVERT => Key::Convert,
-        VK_MODECHANGE => Key::ModeChange,
-        VK_PROCESSKEY => Key::Process,
-        VK_ATTN => Key::Attn,
-        VK_CRSEL => Key::CrSel,
-        VK_EXSEL => Key::ExSel,
-        VK_EREOF => Key::EraseEof,
-        VK_PLAY => Key::Play,
-        VK_ZOOM => Key::ZoomToggle,
-        VK_OEM_CLEAR => Key::Clear,
+        VK_KANA => Key::Named(NamedKey::KanaMode),
+        VK_JUNJA => Key::Named(NamedKey::JunjaMode),
+        VK_FINAL => Key::Named(NamedKey::FinalMode),
+        VK_KANJI => Key::Named(NamedKey::KanjiMode),
+        VK_ESCAPE => Key::Named(NamedKey::Escape),
+        VK_NONCONVERT => Key::Named(NamedKey::NonConvert),
+        VK_ACCEPT => Key::Named(NamedKey::Accept),
+        VK_PRIOR => Key::Named(NamedKey::PageUp),
+        VK_NEXT => Key::Named(NamedKey::PageDown),
+        VK_END => Key::Named(NamedKey::End),
+        VK_HOME => Key::Named(NamedKey::Home),
+        VK_LEFT => Key::Named(NamedKey::ArrowLeft),
+        VK_UP => Key::Named(NamedKey::ArrowUp),
+        VK_RIGHT => Key::Named(NamedKey::ArrowRight),
+        VK_DOWN => Key::Named(NamedKey::ArrowDown),
+        VK_SELECT => Key::Named(NamedKey::Select),
+        VK_PRINT => Key::Named(NamedKey::Print),
+        VK_EXECUTE => Key::Named(NamedKey::Execute),
+        VK_SNAPSHOT => Key::Named(NamedKey::PrintScreen),
+        VK_INSERT => Key::Named(NamedKey::Insert),
+        VK_DELETE => Key::Named(NamedKey::Delete),
+        VK_HELP => Key::Named(NamedKey::Help),
+        VK_LWIN | VK_RWIN => Key::Named(NamedKey::Meta),
+        VK_APPS => Key::Named(NamedKey::ContextMenu),
+        VK_SLEEP => Key::Named(NamedKey::Standby),
+        VK_F1 => Key::Named(NamedKey::F1),
+        VK_F2 => Key::Named(NamedKey::F2),
+        VK_F3 => Key::Named(NamedKey::F3),
+        VK_F4 => Key::Named(NamedKey::F4),
+        VK_F5 => Key::Named(NamedKey::F5),
+        VK_F6 => Key::Named(NamedKey::F6),
+        VK_F7 => Key::Named(NamedKey::F7),
+        VK_F8 => Key::Named(NamedKey::F8),
+        VK_F9 => Key::Named(NamedKey::F9),
+        VK_F10 => Key::Named(NamedKey::F10),
+        VK_F11 => Key::Named(NamedKey::F11),
+        VK_F12 => Key::Named(NamedKey::F12),
+        VK_NUMLOCK => Key::Named(NamedKey::NumLock),
+        VK_SCROLL => Key::Named(NamedKey::ScrollLock),
+        VK_BROWSER_BACK => Key::Named(NamedKey::BrowserBack),
+        VK_BROWSER_FORWARD => Key::Named(NamedKey::BrowserForward),
+        VK_BROWSER_REFRESH => Key::Named(NamedKey::BrowserRefresh),
+        VK_BROWSER_STOP => Key::Named(NamedKey::BrowserStop),
+        VK_BROWSER_SEARCH => Key::Named(NamedKey::BrowserSearch),
+        VK_BROWSER_FAVORITES => Key::Named(NamedKey::BrowserFavorites),
+        VK_BROWSER_HOME => Key::Named(NamedKey::BrowserHome),
+        VK_VOLUME_MUTE => Key::Named(NamedKey::AudioVolumeMute),
+        VK_VOLUME_DOWN => Key::Named(NamedKey::AudioVolumeDown),
+        VK_VOLUME_UP => Key::Named(NamedKey::AudioVolumeUp),
+        VK_MEDIA_NEXT_TRACK => Key::Named(NamedKey::MediaTrackNext),
+        VK_MEDIA_PREV_TRACK => Key::Named(NamedKey::MediaTrackPrevious),
+        VK_MEDIA_STOP => Key::Named(NamedKey::MediaStop),
+        VK_MEDIA_PLAY_PAUSE => Key::Named(NamedKey::MediaPlayPause),
+        VK_LAUNCH_MAIL => Key::Named(NamedKey::LaunchMail),
+        VK_LAUNCH_MEDIA_SELECT => Key::Named(NamedKey::LaunchMediaPlayer),
+        VK_LAUNCH_APP1 => Key::Named(NamedKey::LaunchApplication1),
+        VK_LAUNCH_APP2 => Key::Named(NamedKey::LaunchApplication2),
+        VK_OEM_ATTN => Key::Named(NamedKey::Alphanumeric),
+        VK_CONVERT => Key::Named(NamedKey::Convert),
+        VK_MODECHANGE => Key::Named(NamedKey::ModeChange),
+        VK_PROCESSKEY => Key::Named(NamedKey::Process),
+        VK_ATTN => Key::Named(NamedKey::Attn),
+        VK_CRSEL => Key::Named(NamedKey::CrSel),
+        VK_EXSEL => Key::Named(NamedKey::ExSel),
+        VK_EREOF => Key::Named(NamedKey::EraseEof),
+        VK_PLAY => Key::Named(NamedKey::Play),
+        VK_ZOOM => Key::Named(NamedKey::ZoomToggle),
+        VK_OEM_CLEAR => Key::Named(NamedKey::Clear),
         _ => return None,
     })
 }
 
 fn code_unit_to_key(code_unit: u32) -> Key {
     match code_unit {
-        0x8 | 0x7F => Key::Backspace,
-        0x9 => Key::Tab,
-        0xA | 0xD => Key::Enter,
-        0x1B => Key::Escape,
+        0x8 | 0x7F => Key::Named(NamedKey::Backspace),
+        0x9 => Key::Named(NamedKey::Tab),
+        0xA | 0xD => Key::Named(NamedKey::Enter),
+        0x1B => Key::Named(NamedKey::Escape),
         _ if code_unit >= 0x20 => {
             if let Some(c) = std::char::from_u32(code_unit) {
                 Key::Character(c.to_string())
             } else {
-                Key::Unidentified
+                Key::Named(NamedKey::Unidentified)
             }
         }
-        _ => Key::Unidentified,
+        _ => Key::Named(NamedKey::Unidentified),
     }
 }
 
@@ -363,18 +365,44 @@ impl KeyboardState {
     pub(crate) unsafe fn process_message(
         &mut self, hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM,
     ) -> Option<KeyboardEvent> {
-        match msg {
-            WM_KEYDOWN | WM_SYSKEYDOWN => {
-                let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
-                let vk = self.refine_vk(wparam as u8, scan_code);
-                if is_last_message(hwnd, msg, lparam) {
+        unsafe {
+            match msg {
+                WM_KEYDOWN | WM_SYSKEYDOWN => {
+                    let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
+                    let vk = self.refine_vk(wparam as u8, scan_code);
+                    if is_last_message(hwnd, msg, lparam) {
+                        let modifiers = self.get_modifiers();
+                        let code = scan_to_code(scan_code);
+                        let key = vk_to_key(vk).unwrap_or_else(|| self.get_base_key(vk, modifiers));
+                        let repeat = (lparam & 0x4000_0000) != 0;
+                        let is_extended = (lparam & 0x100_0000) != 0;
+                        let location = vk_to_location(vk, is_extended);
+                        let state = KeyState::Down;
+                        let event = KeyboardEvent {
+                            state,
+                            modifiers,
+                            code,
+                            key,
+                            is_composing: false,
+                            location,
+                            repeat,
+                        };
+                        Some(event)
+                    } else {
+                        self.stash_vk = Some(vk);
+                        None
+                    }
+                }
+                WM_KEYUP | WM_SYSKEYUP => {
+                    let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
+                    let vk = self.refine_vk(wparam as u8, scan_code);
                     let modifiers = self.get_modifiers();
                     let code = scan_to_code(scan_code);
                     let key = vk_to_key(vk).unwrap_or_else(|| self.get_base_key(vk, modifiers));
-                    let repeat = (lparam & 0x4000_0000) != 0;
+                    let repeat = false;
                     let is_extended = (lparam & 0x100_0000) != 0;
                     let location = vk_to_location(vk, is_extended);
-                    let state = KeyState::Down;
+                    let state = KeyState::Up;
                     let event = KeyboardEvent {
                         state,
                         modifiers,
@@ -385,75 +413,51 @@ impl KeyboardState {
                         repeat,
                     };
                     Some(event)
-                } else {
-                    self.stash_vk = Some(vk);
-                    None
                 }
-            }
-            WM_KEYUP | WM_SYSKEYUP => {
-                let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
-                let vk = self.refine_vk(wparam as u8, scan_code);
-                let modifiers = self.get_modifiers();
-                let code = scan_to_code(scan_code);
-                let key = vk_to_key(vk).unwrap_or_else(|| self.get_base_key(vk, modifiers));
-                let repeat = false;
-                let is_extended = (lparam & 0x100_0000) != 0;
-                let location = vk_to_location(vk, is_extended);
-                let state = KeyState::Up;
-                let event = KeyboardEvent {
-                    state,
-                    modifiers,
-                    code,
-                    key,
-                    is_composing: false,
-                    location,
-                    repeat,
-                };
-                Some(event)
-            }
-            WM_CHAR | WM_SYSCHAR => {
-                if is_last_message(hwnd, msg, lparam) {
-                    let stash_vk = self.stash_vk.take();
-                    let modifiers = self.get_modifiers();
-                    let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
-                    let vk = self.refine_vk(stash_vk.unwrap_or(0), scan_code);
-                    let code = scan_to_code(scan_code);
-                    let key = if self.stash_utf16.is_empty() && wparam < 0x20 {
-                        vk_to_key(vk).unwrap_or_else(|| self.get_base_key(vk, modifiers))
+                WM_CHAR | WM_SYSCHAR => {
+                    if is_last_message(hwnd, msg, lparam) {
+                        let stash_vk = self.stash_vk.take();
+                        let modifiers = self.get_modifiers();
+                        let scan_code = ((lparam & SCAN_MASK) >> 16) as u32;
+                        let vk = self.refine_vk(stash_vk.unwrap_or(0), scan_code);
+                        let code = scan_to_code(scan_code);
+                        let key = if self.stash_utf16.is_empty() && wparam < 0x20 {
+                            vk_to_key(vk).unwrap_or_else(|| self.get_base_key(vk, modifiers))
+                        } else {
+                            self.stash_utf16.push(wparam as u16);
+                            if let Ok(s) = String::from_utf16(&self.stash_utf16) {
+                                Key::Character(s)
+                            } else {
+                                Key::Named(NamedKey::Unidentified)
+                            }
+                        };
+                        self.stash_utf16.clear();
+                        let repeat = (lparam & 0x4000_0000) != 0;
+                        let is_extended = (lparam & 0x100_0000) != 0;
+                        let location = vk_to_location(vk, is_extended);
+                        let state = KeyState::Down;
+                        let event = KeyboardEvent {
+                            state,
+                            modifiers,
+                            code,
+                            key,
+                            is_composing: false,
+                            location,
+                            repeat,
+                        };
+                        Some(event)
                     } else {
                         self.stash_utf16.push(wparam as u16);
-                        if let Ok(s) = String::from_utf16(&self.stash_utf16) {
-                            Key::Character(s)
-                        } else {
-                            Key::Unidentified
-                        }
-                    };
-                    self.stash_utf16.clear();
-                    let repeat = (lparam & 0x4000_0000) != 0;
-                    let is_extended = (lparam & 0x100_0000) != 0;
-                    let location = vk_to_location(vk, is_extended);
-                    let state = KeyState::Down;
-                    let event = KeyboardEvent {
-                        state,
-                        modifiers,
-                        code,
-                        key,
-                        is_composing: false,
-                        location,
-                        repeat,
-                    };
-                    Some(event)
-                } else {
-                    self.stash_utf16.push(wparam as u16);
+                        None
+                    }
+                }
+                WM_INPUTLANGCHANGE => {
+                    self.hkl = lparam as HKL;
+                    self.load_keyboard_layout();
                     None
                 }
+                _ => None,
             }
-            WM_INPUTLANGCHANGE => {
-                self.hkl = lparam as HKL;
-                self.load_keyboard_layout();
-                None
-            }
-            _ => None,
         }
     }
 
@@ -568,7 +572,7 @@ impl KeyboardState {
             Key::Character(s.clone())
         } else {
             let mapped = self.map_vk(vk);
-            if mapped >= (1 << 31) { Key::Dead } else { code_unit_to_key(mapped) }
+            if mapped >= (1 << 31) { Key::Named(NamedKey::Dead) } else { code_unit_to_key(mapped) }
         }
     }
 

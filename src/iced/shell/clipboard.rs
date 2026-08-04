@@ -1,5 +1,5 @@
 use crate::iced::core::clipboard::Kind;
-use raw_window_handle_06::HasDisplayHandle;
+use raw_window_handle::HasDisplayHandle;
 
 use tracing::warn;
 

@@ -1,6 +1,7 @@
 #[cfg(unix)]
 use keyboard_types::{Code, Location};
 
+#[cfg(unix)]
 pub fn code_to_location(code: Code) -> Location {
     match code {
         Code::MetaLeft | Code::ShiftLeft | Code::AltLeft | Code::ControlLeft => Location::Left,

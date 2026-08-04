@@ -90,38 +90,42 @@ fn deinit_keyboard_hook(hwnd: HWNDWrapper) {
 unsafe extern "system" fn keyboard_hook_callback(
     n_code: c_int, wparam: WPARAM, lparam: LPARAM,
 ) -> isize {
-    let msg = lparam as *mut MSG;
+    unsafe {
+        let msg = lparam as *mut MSG;
 
-    if n_code == HC_ACTION && wparam == PM_REMOVE as usize && offer_message_to_baseview(msg) {
-        *msg = MSG {
-            hwnd: ptr::null_mut(),
-            message: WM_USER,
-            wParam: 0,
-            lParam: 0,
-            time: 0,
-            pt: POINT { x: 0, y: 0 },
-        };
+        if n_code == HC_ACTION && wparam == PM_REMOVE as usize && offer_message_to_baseview(msg) {
+            *msg = MSG {
+                hwnd: ptr::null_mut(),
+                message: WM_USER,
+                wParam: 0,
+                lParam: 0,
+                time: 0,
+                pt: POINT { x: 0, y: 0 },
+            };
 
-        0
-    } else {
-        CallNextHookEx(ptr::null_mut(), n_code, wparam, lparam)
+            0
+        } else {
+            CallNextHookEx(ptr::null_mut(), n_code, wparam, lparam)
+        }
     }
 }
 
 unsafe fn offer_message_to_baseview(msg: *mut MSG) -> bool {
-    let msg = &*msg;
+    unsafe {
+        let msg = &*msg;
 
-    match msg.message {
-        WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP | WM_CHAR | WM_SYSCHAR => {}
+        match msg.message {
+            WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP | WM_CHAR | WM_SYSCHAR => {}
 
-        _ => return false,
+            _ => return false,
+        }
+
+        if HOOK_STATE.read().unwrap().open_windows.contains(&HWNDWrapper(msg.hwnd)) {
+            let _ = wnd_proc(msg.hwnd, msg.message, msg.wParam, msg.lParam);
+
+            return true;
+        }
+
+        false
     }
-
-    if HOOK_STATE.read().unwrap().open_windows.contains(&HWNDWrapper(msg.hwnd)) {
-        let _ = wnd_proc(msg.hwnd, msg.message, msg.wParam, msg.lParam);
-
-        return true;
-    }
-
-    false
 }

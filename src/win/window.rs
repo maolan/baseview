@@ -21,13 +21,16 @@ use winapi::um::winuser::{
 
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::VecDeque;
-use std::ffi::{OsStr, c_void};
+use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
 use std::rc::Rc;
 
+use std::num::NonZeroIsize;
+
 use raw_window_handle::{
-    HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle, Win32WindowHandle,
+    DisplayHandle as RwhDisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle,
+    RawDisplayHandle, RawWindowHandle, Win32WindowHandle, WindowHandle as RwhWindowHandle,
     WindowsDisplayHandle,
 };
 
@@ -47,22 +50,24 @@ use super::keyboard::KeyboardState;
 use crate::gl::GlContext;
 
 unsafe fn generate_guid() -> String {
-    let mut guid: GUID = std::mem::zeroed();
-    CoCreateGuid(&mut guid);
-    format!(
-        "{:0X}-{:0X}-{:0X}-{:0X}{:0X}-{:0X}{:0X}{:0X}{:0X}{:0X}{:0X}\0",
-        guid.Data1,
-        guid.Data2,
-        guid.Data3,
-        guid.Data4[0],
-        guid.Data4[1],
-        guid.Data4[2],
-        guid.Data4[3],
-        guid.Data4[4],
-        guid.Data4[5],
-        guid.Data4[6],
-        guid.Data4[7]
-    )
+    unsafe {
+        let mut guid: GUID = std::mem::zeroed();
+        CoCreateGuid(&mut guid);
+        format!(
+            "{:0X}-{:0X}-{:0X}-{:0X}{:0X}-{:0X}{:0X}{:0X}{:0X}{:0X}{:0X}\0",
+            guid.Data1,
+            guid.Data2,
+            guid.Data3,
+            guid.Data4[0],
+            guid.Data4[1],
+            guid.Data4[2],
+            guid.Data4[3],
+            guid.Data4[4],
+            guid.Data4[5],
+            guid.Data4[6],
+            guid.Data4[7]
+        )
+    }
 }
 
 const WIN_FRAME_TIMER: usize = 4242;
@@ -86,15 +91,14 @@ impl WindowHandle {
     }
 }
 
-unsafe impl HasRawWindowHandle for WindowHandle {
-    fn raw_window_handle(&self) -> RawWindowHandle {
+impl HasWindowHandle for WindowHandle {
+    fn window_handle(&self) -> Result<RwhWindowHandle<'_>, HandleError> {
         if let Some(hwnd) = self.hwnd {
-            let mut handle = Win32WindowHandle::empty();
-            handle.hwnd = hwnd as *mut c_void;
+            let handle = Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
 
-            RawWindowHandle::Win32(handle)
+            Ok(unsafe { RwhWindowHandle::borrow_raw(RawWindowHandle::Win32(handle)) })
         } else {
-            RawWindowHandle::Win32(Win32WindowHandle::empty())
+            Err(HandleError::Unavailable)
         }
     }
 }
@@ -122,333 +126,349 @@ impl Drop for ParentHandle {
 pub(crate) unsafe extern "system" fn wnd_proc(
     hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM,
 ) -> LRESULT {
-    if msg == WM_CREATE {
-        PostMessageW(hwnd, WM_SHOWWINDOW, 0, 0);
-        return 0;
+    unsafe {
+        if msg == WM_CREATE {
+            PostMessageW(hwnd, WM_SHOWWINDOW, 0, 0);
+            return 0;
+        }
+
+        let window_state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WindowState;
+        if !window_state_ptr.is_null() {
+            let result = wnd_proc_inner(hwnd, msg, wparam, lparam, &*window_state_ptr);
+
+            loop {
+                let task = match (*window_state_ptr).deferred_tasks.borrow_mut().pop_front() {
+                    Some(task) => task,
+                    None => break,
+                };
+
+                (*window_state_ptr).handle_deferred_task(task);
+            }
+
+            if msg == WM_NCDESTROY {
+                RevokeDragDrop(hwnd);
+                unregister_wnd_class((*window_state_ptr).window_class);
+                SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+                drop(Rc::from_raw(window_state_ptr));
+            }
+
+            if let Some(result) = result {
+                return result;
+            }
+        }
+
+        DefWindowProcW(hwnd, msg, wparam, lparam)
     }
-
-    let window_state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WindowState;
-    if !window_state_ptr.is_null() {
-        let result = wnd_proc_inner(hwnd, msg, wparam, lparam, &*window_state_ptr);
-
-        loop {
-            let task = match (*window_state_ptr).deferred_tasks.borrow_mut().pop_front() {
-                Some(task) => task,
-                None => break,
-            };
-
-            (*window_state_ptr).handle_deferred_task(task);
-        }
-
-        if msg == WM_NCDESTROY {
-            RevokeDragDrop(hwnd);
-            unregister_wnd_class((*window_state_ptr).window_class);
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
-            drop(Rc::from_raw(window_state_ptr));
-        }
-
-        if let Some(result) = result {
-            return result;
-        }
-    }
-
-    DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
 unsafe fn wnd_proc_inner(
     hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM, window_state: &WindowState,
 ) -> Option<LRESULT> {
-    match msg {
-        WM_MOUSEMOVE => {
-            let mut window = crate::Window::new(window_state.create_window());
-
-            let mut mouse_was_outside_window = window_state.mouse_was_outside_window.borrow_mut();
-            if *mouse_was_outside_window {
-                let mut track_mouse = TRACKMOUSEEVENT {
-                    cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
-                    dwFlags: winapi::um::winuser::TME_LEAVE,
-                    hwndTrack: hwnd,
-                    dwHoverTime: winapi::um::winuser::HOVER_DEFAULT,
-                };
-
-                TrackMouseEvent(&mut track_mouse);
-                *mouse_was_outside_window = false;
-
-                let enter_event = Event::Mouse(MouseEvent::CursorEntered);
-                window_state
-                    .handler
-                    .borrow_mut()
-                    .as_mut()
-                    .unwrap()
-                    .on_event(&mut window, enter_event);
-            }
-
-            let x = (lparam & 0xFFFF) as i16 as i32;
-            let y = ((lparam >> 16) & 0xFFFF) as i16 as i32;
-
-            let physical_pos = PhyPoint { x, y };
-            let logical_pos = physical_pos.to_logical(&window_state.window_info.borrow());
-            let move_event = Event::Mouse(MouseEvent::CursorMoved {
-                position: logical_pos,
-                modifiers: window_state
-                    .keyboard_state
-                    .borrow()
-                    .get_modifiers_from_mouse_wparam(wparam),
-            });
-            window_state.handler.borrow_mut().as_mut().unwrap().on_event(&mut window, move_event);
-            Some(0)
-        }
-
-        WM_MOUSELEAVE => {
-            let mut window = crate::Window::new(window_state.create_window());
-            let event = Event::Mouse(MouseEvent::CursorLeft);
-            window_state.handler.borrow_mut().as_mut().unwrap().on_event(&mut window, event);
-
-            *window_state.mouse_was_outside_window.borrow_mut() = true;
-            Some(0)
-        }
-        WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
-            let mut window = crate::Window::new(window_state.create_window());
-
-            let value = (wparam >> 16) as i16;
-            let value = value as i32;
-            let value = value as f32 / WHEEL_DELTA as f32;
-
-            let event = Event::Mouse(MouseEvent::WheelScrolled {
-                delta: if msg == WM_MOUSEWHEEL {
-                    ScrollDelta::Lines { x: 0.0, y: value }
-                } else {
-                    ScrollDelta::Lines { x: value, y: 0.0 }
-                },
-                modifiers: window_state
-                    .keyboard_state
-                    .borrow()
-                    .get_modifiers_from_mouse_wparam(wparam),
-            });
-
-            window_state.handler.borrow_mut().as_mut().unwrap().on_event(&mut window, event);
-
-            Some(0)
-        }
-        WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONDOWN | WM_MBUTTONUP | WM_RBUTTONDOWN
-        | WM_RBUTTONUP | WM_XBUTTONDOWN | WM_XBUTTONUP => {
-            let mut window = crate::Window::new(window_state.create_window());
-
-            let mut mouse_button_counter = window_state.mouse_button_counter.get();
-
-            let button = match msg {
-                WM_LBUTTONDOWN | WM_LBUTTONUP => Some(MouseButton::Left),
-                WM_MBUTTONDOWN | WM_MBUTTONUP => Some(MouseButton::Middle),
-                WM_RBUTTONDOWN | WM_RBUTTONUP => Some(MouseButton::Right),
-                WM_XBUTTONDOWN | WM_XBUTTONUP => match GET_XBUTTON_WPARAM(wparam) {
-                    XBUTTON1 => Some(MouseButton::Back),
-                    XBUTTON2 => Some(MouseButton::Forward),
-                    _ => None,
-                },
-                _ => None,
-            };
-
-            if let Some(button) = button {
-                let event = match msg {
-                    WM_LBUTTONDOWN | WM_MBUTTONDOWN | WM_RBUTTONDOWN | WM_XBUTTONDOWN => {
-                        mouse_button_counter = mouse_button_counter.saturating_add(1);
-                        SetCapture(hwnd);
-                        MouseEvent::ButtonPressed {
-                            button,
-                            modifiers: window_state
-                                .keyboard_state
-                                .borrow()
-                                .get_modifiers_from_mouse_wparam(wparam),
-                        }
-                    }
-                    WM_LBUTTONUP | WM_MBUTTONUP | WM_RBUTTONUP | WM_XBUTTONUP => {
-                        mouse_button_counter = mouse_button_counter.saturating_sub(1);
-                        if mouse_button_counter == 0 {
-                            ReleaseCapture();
-                        }
-
-                        MouseEvent::ButtonReleased {
-                            button,
-                            modifiers: window_state
-                                .keyboard_state
-                                .borrow()
-                                .get_modifiers_from_mouse_wparam(wparam),
-                        }
-                    }
-                    _ => {
-                        unreachable!()
-                    }
-                };
-
-                window_state.mouse_button_counter.set(mouse_button_counter);
-
-                window_state
-                    .handler
-                    .borrow_mut()
-                    .as_mut()
-                    .unwrap()
-                    .on_event(&mut window, Event::Mouse(event));
-            }
-
-            None
-        }
-        WM_TIMER => {
-            let mut window = crate::Window::new(window_state.create_window());
-
-            if wparam == WIN_FRAME_TIMER {
-                window_state.handler.borrow_mut().as_mut().unwrap().on_frame(&mut window);
-            }
-
-            Some(0)
-        }
-        WM_CLOSE => {
-            {
+    unsafe {
+        match msg {
+            WM_MOUSEMOVE => {
                 let mut window = crate::Window::new(window_state.create_window());
 
-                window_state
-                    .handler
-                    .borrow_mut()
-                    .as_mut()
-                    .unwrap()
-                    .on_event(&mut window, Event::Window(WindowEvent::WillClose));
-            }
+                let mut mouse_was_outside_window =
+                    window_state.mouse_was_outside_window.borrow_mut();
+                if *mouse_was_outside_window {
+                    let mut track_mouse = TRACKMOUSEEVENT {
+                        cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+                        dwFlags: winapi::um::winuser::TME_LEAVE,
+                        hwndTrack: hwnd,
+                        dwHoverTime: winapi::um::winuser::HOVER_DEFAULT,
+                    };
 
-            Some(DefWindowProcW(hwnd, msg, wparam, lparam))
-        }
-        WM_CHAR | WM_SYSCHAR | WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP
-        | WM_INPUTLANGCHANGE => {
-            let mut window = crate::Window::new(window_state.create_window());
+                    TrackMouseEvent(&mut track_mouse);
+                    *mouse_was_outside_window = false;
 
-            let opt_event =
-                window_state.keyboard_state.borrow_mut().process_message(hwnd, msg, wparam, lparam);
-
-            if let Some(event) = opt_event {
-                window_state
-                    .handler
-                    .borrow_mut()
-                    .as_mut()
-                    .unwrap()
-                    .on_event(&mut window, Event::Keyboard(event));
-            }
-
-            if msg != WM_SYSKEYDOWN { Some(0) } else { None }
-        }
-        WM_SIZE => {
-            let mut window = crate::Window::new(window_state.create_window());
-
-            let width = (lparam & 0xFFFF) as u16 as u32;
-            let height = ((lparam >> 16) & 0xFFFF) as u16 as u32;
-
-            let new_window_info = {
-                let mut window_info = window_state.window_info.borrow_mut();
-                let new_window_info =
-                    WindowInfo::from_physical_size(PhySize { width, height }, window_info.scale());
-
-                if window_info.physical_size() == new_window_info.physical_size() {
-                    return None;
+                    let enter_event = Event::Mouse(MouseEvent::CursorEntered);
+                    window_state
+                        .handler
+                        .borrow_mut()
+                        .as_mut()
+                        .unwrap()
+                        .on_event(&mut window, enter_event);
                 }
 
-                *window_info = new_window_info;
+                let x = (lparam & 0xFFFF) as i16 as i32;
+                let y = ((lparam >> 16) & 0xFFFF) as i16 as i32;
 
-                new_window_info
-            };
+                let physical_pos = PhyPoint { x, y };
+                let logical_pos = physical_pos.to_logical(&window_state.window_info.borrow());
+                let move_event = Event::Mouse(MouseEvent::CursorMoved {
+                    position: logical_pos,
+                    modifiers: window_state
+                        .keyboard_state
+                        .borrow()
+                        .get_modifiers_from_mouse_wparam(wparam),
+                });
+                window_state
+                    .handler
+                    .borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .on_event(&mut window, move_event);
+                Some(0)
+            }
 
-            window_state
-                .handler
-                .borrow_mut()
-                .as_mut()
-                .unwrap()
-                .on_event(&mut window, Event::Window(WindowEvent::Resized(new_window_info)));
+            WM_MOUSELEAVE => {
+                let mut window = crate::Window::new(window_state.create_window());
+                let event = Event::Mouse(MouseEvent::CursorLeft);
+                window_state.handler.borrow_mut().as_mut().unwrap().on_event(&mut window, event);
 
-            None
-        }
-        WM_DPICHANGED => {
-            let new_rect = {
-                if let WindowScalePolicy::SystemScaleFactor = window_state.scale_policy {
-                    let dpi = (wparam & 0xFFFF) as u16 as u32;
-                    let scale_factor = dpi as f64 / 96.0;
+                *window_state.mouse_was_outside_window.borrow_mut() = true;
+                Some(0)
+            }
+            WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
+                let mut window = crate::Window::new(window_state.create_window());
 
+                let value = (wparam >> 16) as i16;
+                let value = value as i32;
+                let value = value as f32 / WHEEL_DELTA as f32;
+
+                let event = Event::Mouse(MouseEvent::WheelScrolled {
+                    delta: if msg == WM_MOUSEWHEEL {
+                        ScrollDelta::Lines { x: 0.0, y: value }
+                    } else {
+                        ScrollDelta::Lines { x: value, y: 0.0 }
+                    },
+                    modifiers: window_state
+                        .keyboard_state
+                        .borrow()
+                        .get_modifiers_from_mouse_wparam(wparam),
+                });
+
+                window_state.handler.borrow_mut().as_mut().unwrap().on_event(&mut window, event);
+
+                Some(0)
+            }
+            WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONDOWN | WM_MBUTTONUP | WM_RBUTTONDOWN
+            | WM_RBUTTONUP | WM_XBUTTONDOWN | WM_XBUTTONUP => {
+                let mut window = crate::Window::new(window_state.create_window());
+
+                let mut mouse_button_counter = window_state.mouse_button_counter.get();
+
+                let button = match msg {
+                    WM_LBUTTONDOWN | WM_LBUTTONUP => Some(MouseButton::Left),
+                    WM_MBUTTONDOWN | WM_MBUTTONUP => Some(MouseButton::Middle),
+                    WM_RBUTTONDOWN | WM_RBUTTONUP => Some(MouseButton::Right),
+                    WM_XBUTTONDOWN | WM_XBUTTONUP => match GET_XBUTTON_WPARAM(wparam) {
+                        XBUTTON1 => Some(MouseButton::Back),
+                        XBUTTON2 => Some(MouseButton::Forward),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+
+                if let Some(button) = button {
+                    let event = match msg {
+                        WM_LBUTTONDOWN | WM_MBUTTONDOWN | WM_RBUTTONDOWN | WM_XBUTTONDOWN => {
+                            mouse_button_counter = mouse_button_counter.saturating_add(1);
+                            SetCapture(hwnd);
+                            MouseEvent::ButtonPressed {
+                                button,
+                                modifiers: window_state
+                                    .keyboard_state
+                                    .borrow()
+                                    .get_modifiers_from_mouse_wparam(wparam),
+                            }
+                        }
+                        WM_LBUTTONUP | WM_MBUTTONUP | WM_RBUTTONUP | WM_XBUTTONUP => {
+                            mouse_button_counter = mouse_button_counter.saturating_sub(1);
+                            if mouse_button_counter == 0 {
+                                ReleaseCapture();
+                            }
+
+                            MouseEvent::ButtonReleased {
+                                button,
+                                modifiers: window_state
+                                    .keyboard_state
+                                    .borrow()
+                                    .get_modifiers_from_mouse_wparam(wparam),
+                            }
+                        }
+                        _ => {
+                            unreachable!()
+                        }
+                    };
+
+                    window_state.mouse_button_counter.set(mouse_button_counter);
+
+                    window_state
+                        .handler
+                        .borrow_mut()
+                        .as_mut()
+                        .unwrap()
+                        .on_event(&mut window, Event::Mouse(event));
+                }
+
+                None
+            }
+            WM_TIMER => {
+                let mut window = crate::Window::new(window_state.create_window());
+
+                if wparam == WIN_FRAME_TIMER {
+                    window_state.handler.borrow_mut().as_mut().unwrap().on_frame(&mut window);
+                }
+
+                Some(0)
+            }
+            WM_CLOSE => {
+                {
+                    let mut window = crate::Window::new(window_state.create_window());
+
+                    window_state
+                        .handler
+                        .borrow_mut()
+                        .as_mut()
+                        .unwrap()
+                        .on_event(&mut window, Event::Window(WindowEvent::WillClose));
+                }
+
+                Some(DefWindowProcW(hwnd, msg, wparam, lparam))
+            }
+            WM_CHAR | WM_SYSCHAR | WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP
+            | WM_INPUTLANGCHANGE => {
+                let mut window = crate::Window::new(window_state.create_window());
+
+                let opt_event = window_state
+                    .keyboard_state
+                    .borrow_mut()
+                    .process_message(hwnd, msg, wparam, lparam);
+
+                if let Some(event) = opt_event {
+                    window_state
+                        .handler
+                        .borrow_mut()
+                        .as_mut()
+                        .unwrap()
+                        .on_event(&mut window, Event::Keyboard(event));
+                }
+
+                if msg != WM_SYSKEYDOWN { Some(0) } else { None }
+            }
+            WM_SIZE => {
+                let mut window = crate::Window::new(window_state.create_window());
+
+                let width = (lparam & 0xFFFF) as u16 as u32;
+                let height = ((lparam >> 16) & 0xFFFF) as u16 as u32;
+
+                let new_window_info = {
                     let mut window_info = window_state.window_info.borrow_mut();
-                    *window_info =
-                        WindowInfo::from_logical_size(window_info.logical_size(), scale_factor);
+                    let new_window_info = WindowInfo::from_physical_size(
+                        PhySize { width, height },
+                        window_info.scale(),
+                    );
 
-                    Some((
-                        RECT {
-                            left: 0,
-                            top: 0,
+                    if window_info.physical_size() == new_window_info.physical_size() {
+                        return None;
+                    }
 
-                            right: window_info.physical_size().width as i32,
-                            bottom: window_info.physical_size().height as i32,
-                        },
-                        window_state.dw_style,
-                    ))
+                    *window_info = new_window_info;
+
+                    new_window_info
+                };
+
+                window_state
+                    .handler
+                    .borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .on_event(&mut window, Event::Window(WindowEvent::Resized(new_window_info)));
+
+                None
+            }
+            WM_DPICHANGED => {
+                let new_rect = {
+                    if let WindowScalePolicy::SystemScaleFactor = window_state.scale_policy {
+                        let dpi = (wparam & 0xFFFF) as u16 as u32;
+                        let scale_factor = dpi as f64 / 96.0;
+
+                        let mut window_info = window_state.window_info.borrow_mut();
+                        *window_info =
+                            WindowInfo::from_logical_size(window_info.logical_size(), scale_factor);
+
+                        Some((
+                            RECT {
+                                left: 0,
+                                top: 0,
+
+                                right: window_info.physical_size().width as i32,
+                                bottom: window_info.physical_size().height as i32,
+                            },
+                            window_state.dw_style,
+                        ))
+                    } else {
+                        None
+                    }
+                };
+                if let Some((mut new_rect, dw_style)) = new_rect {
+                    AdjustWindowRectEx(&mut new_rect, dw_style, 0, 0);
+
+                    SetWindowPos(
+                        hwnd,
+                        hwnd,
+                        new_rect.left,
+                        new_rect.top,
+                        new_rect.right - new_rect.left,
+                        new_rect.bottom - new_rect.top,
+                        SWP_NOZORDER | SWP_NOMOVE,
+                    );
+                }
+
+                None
+            }
+
+            WM_SETCURSOR => {
+                let low_word = LOWORD(lparam as u32) as isize;
+                let mouse_in_window = low_word == HTCLIENT;
+                if mouse_in_window {
+                    let cursor =
+                        LoadCursorW(null_mut(), cursor_to_lpcwstr(window_state.cursor_icon.get()));
+                    SetCursor(cursor);
+                    Some(1)
                 } else {
                     None
                 }
-            };
-            if let Some((mut new_rect, dw_style)) = new_rect {
-                AdjustWindowRectEx(&mut new_rect, dw_style, 0, 0);
-
-                SetWindowPos(
-                    hwnd,
-                    hwnd,
-                    new_rect.left,
-                    new_rect.top,
-                    new_rect.right - new_rect.left,
-                    new_rect.bottom - new_rect.top,
-                    SWP_NOZORDER | SWP_NOMOVE,
-                );
             }
 
-            None
-        }
-
-        WM_SETCURSOR => {
-            let low_word = LOWORD(lparam as u32) as isize;
-            let mouse_in_window = low_word == HTCLIENT;
-            if mouse_in_window {
-                let cursor =
-                    LoadCursorW(null_mut(), cursor_to_lpcwstr(window_state.cursor_icon.get()));
-                unsafe {
-                    SetCursor(cursor);
-                }
-                Some(1)
-            } else {
-                None
+            BV_WINDOW_MUST_CLOSE => {
+                DestroyWindow(hwnd);
+                Some(0)
             }
+            _ => None,
         }
-
-        BV_WINDOW_MUST_CLOSE => {
-            DestroyWindow(hwnd);
-            Some(0)
-        }
-        _ => None,
     }
 }
 
 unsafe fn register_wnd_class() -> ATOM {
-    let class_name_str = format!("Baseview-{}", generate_guid());
-    let mut class_name: Vec<u16> = OsStr::new(&class_name_str).encode_wide().collect();
-    class_name.push(0);
+    unsafe {
+        let class_name_str = format!("Baseview-{}", generate_guid());
+        let mut class_name: Vec<u16> = OsStr::new(&class_name_str).encode_wide().collect();
+        class_name.push(0);
 
-    let wnd_class = WNDCLASSW {
-        style: CS_OWNDC,
-        lpfnWndProc: Some(wnd_proc),
-        hInstance: null_mut(),
-        lpszClassName: class_name.as_ptr(),
-        cbClsExtra: 0,
-        cbWndExtra: 0,
-        hIcon: null_mut(),
-        hCursor: LoadCursorW(null_mut(), IDC_ARROW),
-        hbrBackground: null_mut(),
-        lpszMenuName: null_mut(),
-    };
+        let wnd_class = WNDCLASSW {
+            style: CS_OWNDC,
+            lpfnWndProc: Some(wnd_proc),
+            hInstance: null_mut(),
+            lpszClassName: class_name.as_ptr(),
+            cbClsExtra: 0,
+            cbWndExtra: 0,
+            hIcon: null_mut(),
+            hCursor: LoadCursorW(null_mut(), IDC_ARROW),
+            hbrBackground: null_mut(),
+            lpszMenuName: null_mut(),
+        };
 
-    RegisterClassW(&wnd_class)
+        RegisterClassW(&wnd_class)
+    }
 }
 
 unsafe fn unregister_wnd_class(wnd_class: ATOM) {
-    UnregisterClassW(wnd_class as _, null_mut());
+    unsafe {
+        UnregisterClassW(wnd_class as _, null_mut());
+    }
 }
 
 pub(super) struct WindowState {
@@ -466,7 +486,7 @@ pub(super) struct WindowState {
     scale_policy: WindowScalePolicy,
     dw_style: u32,
 
-    kb_hook: KeyboardHookHandle,
+    _kb_hook: KeyboardHookHandle,
 
     pub deferred_tasks: RefCell<VecDeque<WindowTask>>,
 
@@ -532,13 +552,13 @@ pub struct Window<'a> {
 impl Window<'_> {
     pub fn open_parented<P, H, B>(parent: &P, options: WindowOpenOptions, build: B) -> WindowHandle
     where
-        P: HasRawWindowHandle,
+        P: HasWindowHandle,
         H: WindowHandler + 'static,
         B: FnOnce(&mut crate::Window) -> H,
         B: Send + 'static,
     {
-        let parent = match parent.raw_window_handle() {
-            RawWindowHandle::Win32(h) => h.hwnd as HWND,
+        let parent = match parent.window_handle().unwrap().as_raw() {
+            RawWindowHandle::Win32(h) => h.hwnd.get() as HWND,
             h => panic!("unsupported parent handle {:?}", h),
         };
 
@@ -635,9 +655,9 @@ impl Window<'_> {
 
             #[cfg(feature = "opengl")]
             let gl_context: Option<GlContext> = options.gl_config.map(|gl_config| {
-                let mut handle = Win32WindowHandle::empty();
-                handle.hwnd = hwnd as *mut c_void;
-                let handle = RawWindowHandle::Win32(handle);
+                let handle = RawWindowHandle::Win32(Win32WindowHandle::new(
+                    NonZeroIsize::new(hwnd as isize).unwrap(),
+                ));
 
                 GlContext::create(&handle, gl_config).expect("Could not create OpenGL context")
             });
@@ -662,7 +682,7 @@ impl Window<'_> {
 
                 deferred_tasks: RefCell::new(VecDeque::with_capacity(4)),
 
-                kb_hook,
+                _kb_hook: kb_hook,
 
                 #[cfg(feature = "opengl")]
                 gl_context,
@@ -765,18 +785,19 @@ impl Window<'_> {
     }
 }
 
-unsafe impl HasRawWindowHandle for Window<'_> {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        let mut handle = Win32WindowHandle::empty();
-        handle.hwnd = self.state.hwnd as *mut c_void;
+impl HasWindowHandle for Window<'_> {
+    fn window_handle(&self) -> Result<RwhWindowHandle<'_>, HandleError> {
+        let handle = Win32WindowHandle::new(NonZeroIsize::new(self.state.hwnd as isize).unwrap());
 
-        RawWindowHandle::Win32(handle)
+        Ok(unsafe { RwhWindowHandle::borrow_raw(RawWindowHandle::Win32(handle)) })
     }
 }
 
-unsafe impl HasRawDisplayHandle for Window<'_> {
-    fn raw_display_handle(&self) -> RawDisplayHandle {
-        RawDisplayHandle::Windows(WindowsDisplayHandle::empty())
+impl HasDisplayHandle for Window<'_> {
+    fn display_handle(&self) -> Result<RwhDisplayHandle<'_>, HandleError> {
+        Ok(unsafe {
+            RwhDisplayHandle::borrow_raw(RawDisplayHandle::Windows(WindowsDisplayHandle::new()))
+        })
     }
 }
 

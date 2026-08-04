@@ -1,6 +1,6 @@
 [package]
 name = "maolan-baseview"
-version = "0.0.4"
+version = "0.0.5"
 authors = [
     "William Light <git@wrl.lhiaudio.com>",
     "Charles Saracco <crsaracco@gmail.com>",
@@ -15,7 +15,6 @@ description = "A low-level windowing system geared towards making audio plugin U
 keywords = ["gui", "windowing", "audio", "plugin"]
 categories = ["gui"]
 edition = "2024"
-rust-version = "1.85.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maolan/baseview"
 homepage = "https://maolan.github.io"
@@ -54,33 +53,32 @@ tokio = []
 unconditional-rendering = []
 
 [dependencies]
-keyboard-types = { version = "0.6.1", default-features = false }
-raw-window-handle = "0.5"
+keyboard-types = { version = "0.8", default-features = false }
+raw-window-handle = "0.6"
 iced_debug = "0.14"
 iced_program = "0.14"
 iced_renderer = "0.14"
-iced_widget = "0.14"
+iced_widget = "0.14.2"
 iced_futures = "0.14"
 iced_core = "0.14"
 iced_runtime = "0.14"
-window_clipboard = { version = "0.5", default-features = false }
+window_clipboard = { version = "0.5.1", default-features = false }
 image = { version = "0.25", default-features = false, optional = true }
-thiserror = "1.0"
+thiserror = "2.0"
 tracing = "0.1"
-raw-window-handle-06 = { package = "raw-window-handle", version = "0.6" }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
-x11rb = { version = "0.13.0", features = ["cursor", "resource_manager", "allow-unsafe-code"] }
+x11rb = { version = "0.14", features = ["cursor", "resource_manager", "allow-unsafe-code"] }
 x11 = { version = "2.21", features = ["xlib", "xlib_xcb"] }
 nix = { version = "0.31", features = ["poll"] }
 
 [target.'cfg(target_os="windows")'.dependencies]
-winapi = { version = "0.3.8", features = ["libloaderapi", "winuser", "windef", "minwindef", "guiddef", "combaseapi", "wingdi", "errhandlingapi", "ole2", "oleidl", "shellapi", "winerror"] }
-uuid = { version = "0.8", features = ["v4"], optional = true }
+winapi = { version = "0.3.9", features = ["libloaderapi", "winuser", "windef", "minwindef", "guiddef", "combaseapi", "wingdi", "errhandlingapi", "ole2", "oleidl", "shellapi", "winerror"] }
+uuid = { version = "1.0", features = ["v4"], optional = true }
 
 [dev-dependencies]
-rtrb = "0.2"
-softbuffer = "0.3.4"
+rtrb = "0.3"
+softbuffer = "0.4"
 
 [lints.clippy]
 missing-safety-doc = "allow"
