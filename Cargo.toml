@@ -1,6 +1,6 @@
 [package]
 name = "maolan-baseview"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
     "William Light <git@wrl.lhiaudio.com>",
     "Charles Saracco <crsaracco@gmail.com>",
@@ -77,7 +77,7 @@ winapi = { version = "0.3.9", features = ["libloaderapi", "winuser", "windef", "
 uuid = { version = "1.0", features = ["v4"], optional = true }
 
 [dev-dependencies]
-rtrb = "0.3"
+rtrb = "0.4"
 softbuffer = "0.4"
 
 [lints.clippy]
