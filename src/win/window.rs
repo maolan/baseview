@@ -161,6 +161,8 @@ pub(crate) unsafe extern "system" fn wnd_proc(
     }
 }
 
+/// Our custom `wnd_proc` handler. If the result contains a value, then this is returned after
+/// handling any deferred tasks. otherwise the default window procedure is invoked.
 unsafe fn wnd_proc_inner(
     hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM, window_state: &WindowState,
 ) -> Option<LRESULT> {
@@ -471,7 +473,15 @@ unsafe fn unregister_wnd_class(wnd_class: ATOM) {
     }
 }
 
+/// All data associated with the window. This uses internal mutability so the outer struct doesn't
+/// need to be mutably borrowed. Mutably borrowing the entire `WindowState` can be problematic
+/// because of the Windows message loops' reentrant nature. Care still needs to be taken to prevent
+/// `handler` from indirectly triggering other events that would also need to be handled using
+/// `handler`.
 pub(super) struct WindowState {
+    /// The HWND belonging to this window. The window's actual state is stored in the `WindowState`
+    /// struct associated with this HWND through `unsafe { GetWindowLongPtrW(self.hwnd,
+    /// GWLP_USERDATA) } as *const WindowState`.
     pub hwnd: HWND,
     window_class: ATOM,
     window_info: RefCell<WindowInfo>,
@@ -488,6 +498,11 @@ pub(super) struct WindowState {
 
     _kb_hook: KeyboardHookHandle,
 
+    /// Tasks that should be executed at the end of `wnd_proc`. This is needed to avoid mutably
+    /// borrowing the fields from `WindowState` more than once. For instance, when the window
+    /// handler requests a resize in response to a keyboard event, the window state will already be
+    /// borrowed in `wnd_proc`. So the `resize()` function below cannot also mutably borrow that
+    /// window state at the same time.
     pub deferred_tasks: RefCell<VecDeque<WindowTask>>,
 
     #[cfg(feature = "opengl")]
@@ -511,6 +526,7 @@ impl WindowState {
         self.handler.borrow_mut()
     }
 
+    /// Handle a deferred task as described in [`Self::deferred_tasks`].
     pub(self) fn handle_deferred_task(&self, task: WindowTask) {
         match task {
             WindowTask::Resize(size) => {
@@ -540,8 +556,12 @@ impl WindowState {
     }
 }
 
+/// Tasks that must be deferred until the end of [`wnd_proc()`] to avoid reentrant `WindowState`
+/// borrows. See the docstring on [`WindowState::deferred_tasks`] for more information.
 #[derive(Debug, Clone)]
 pub(super) enum WindowTask {
+    /// Resize the window to the given size. The size is in logical pixels. DPI scaling is applied
+    /// automatically.
     Resize(Size),
 }
 

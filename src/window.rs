@@ -9,9 +9,18 @@ use crate::event::{Event, EventStatus};
 use crate::window_open_options::WindowOpenOptions;
 use crate::{MouseCursor, Size};
 
+#[cfg(target_os = "macos")]
+use crate::macos as platform;
+#[cfg(not(any(
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "linux",
+    target_os = "freebsd"
+)))]
+use crate::unsupported as platform;
 #[cfg(target_os = "windows")]
 use crate::win as platform;
-#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use crate::x11 as platform;
 
 pub struct WindowHandle {
@@ -25,10 +34,13 @@ impl WindowHandle {
         Self { window_handle, phantom: PhantomData }
     }
 
+    /// Close the window
     pub fn close(&mut self) {
         self.window_handle.close();
     }
 
+    /// Returns `true` if the window is still open, and returns `false`
+    /// if the window was closed/dropped.
     pub fn is_open(&self) -> bool {
         self.window_handle.is_open()
     }
@@ -57,7 +69,12 @@ impl<'a> Window<'a> {
         Window { window, phantom: PhantomData }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    pub(crate) fn new(window: platform::Window<'a>) -> Window<'a> {
+        Window { window, phantom: PhantomData }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     pub(crate) fn new(window: platform::Window) -> Window {
         Window { window, phantom: PhantomData }
     }
@@ -82,10 +99,13 @@ impl<'a> Window<'a> {
         platform::Window::open_blocking::<H, B>(options, build)
     }
 
+    /// Close the window
     pub fn close(&mut self) {
         self.window.close();
     }
 
+    /// Resize the window to the given size. The size is always in logical pixels. DPI scaling will
+    /// automatically be accounted for.
     pub fn resize(&mut self, size: Size) {
         self.window.resize(size);
     }
@@ -102,6 +122,8 @@ impl<'a> Window<'a> {
         self.window.focus()
     }
 
+    /// If provided, then an OpenGL context will be created for this window. You'll be able to
+    /// access this context through [crate::Window::gl_context].
     #[cfg(feature = "opengl")]
     pub fn gl_context(&self) -> Option<&crate::gl::GlContext> {
         self.window.gl_context()

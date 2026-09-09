@@ -1,8 +1,12 @@
+//! Access the clipboard.
+
 use crate::iced::core::clipboard::Kind;
 use raw_window_handle::HasDisplayHandle;
 
 use tracing::warn;
 
+/// A buffer for short-term storage and transfer within and between
+/// applications.
 pub struct Clipboard {
     state: State,
 }
@@ -13,6 +17,9 @@ enum State {
 }
 
 impl Clipboard {
+    /// Creates a new [`Clipboard`] for the given window.
+    ///
+    /// # SAFETY: The window handle must outlive this struct.
     pub unsafe fn connect<W: HasDisplayHandle>(window: &W) -> Clipboard {
         let clipboard = unsafe { window_clipboard::Clipboard::connect(window) };
 
@@ -24,10 +31,13 @@ impl Clipboard {
         Clipboard { state }
     }
 
+    /// Creates a new [`Clipboard`] that isn't associated with a window.
+    /// This clipboard will never contain a copied value.
     pub fn unconnected() -> Clipboard {
         Clipboard { state: State::Unavailable }
     }
 
+    /// Reads the current content of the [`Clipboard`] as text.
     pub fn read(&self, kind: Kind) -> Option<String> {
         match &self.state {
             State::Connected { clipboard, .. } => match kind {
@@ -38,6 +48,7 @@ impl Clipboard {
         }
     }
 
+    /// Writes the given text contents to the [`Clipboard`].
     pub fn write(&mut self, kind: Kind, contents: String) {
         match &mut self.state {
             State::Connected { clipboard, .. } => {

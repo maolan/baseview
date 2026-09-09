@@ -198,6 +198,7 @@ fn baseview_mouse_button_to_iced(id: crate::MouseButton) -> IcedMouseButton {
     }
 }
 
+/// Converts a physical cursor position to a logical `Point`.
 pub fn cursor_position(position: PhyPoint, scale_factor: f32) -> Point {
     Point::new(
         (f64::from(position.x) * scale_factor as f64) as f32,

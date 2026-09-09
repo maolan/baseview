@@ -1,6 +1,15 @@
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(not(any(
+    target_os = "macos",
+    target_os = "windows",
+    target_os = "linux",
+    target_os = "freebsd"
+)))]
+mod unsupported;
 #[cfg(target_os = "windows")]
 mod win;
-#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod x11;
 
 mod clipboard;
