@@ -146,7 +146,7 @@ pub(super) unsafe fn create_view(window_options: &WindowOpenOptions) -> id {
 }
 
 unsafe fn create_view_class() -> &'static Class {
-    let class_name = format!("BaseviewNSView_{}", Uuid::new_v4().to_simple());
+    let class_name = format!("BaseviewNSView_{}", Uuid::new_v4().simple());
     let mut class = ClassDecl::new(&class_name, class!(NSView)).unwrap();
 
     unsafe {

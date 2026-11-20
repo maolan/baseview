@@ -90,11 +90,15 @@ impl GlContext {
     }
 
     pub unsafe fn make_current(&self) {
-        self.context.make_current();
+        unsafe {
+            self.context.make_current();
+        }
     }
 
     pub unsafe fn make_not_current(&self) {
-        self.context.make_not_current();
+        unsafe {
+            self.context.make_not_current();
+        }
     }
 
     pub fn get_proc_address(&self, symbol: &str) -> *const c_void {

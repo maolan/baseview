@@ -195,7 +195,7 @@ where
         let proxy = proxy.clone();
 
         iced_debug::on_hotpatch(move || {
-            let _ = proxy.send_action(Action::Reload);
+            proxy.send_action(Action::Reload);
         });
     }
 

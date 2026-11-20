@@ -49,18 +49,20 @@ impl<'a> XErrorHandler<'a> {
         unsafe extern "C" fn error_handler(
             _dpy: *mut xlib::Display, err: *mut xlib::XErrorEvent,
         ) -> i32 {
-            let err = &*err;
+            unsafe {
+                let err = &*err;
 
-            CURRENT_X11_ERROR.with(|error| {
-                let mut error = error.borrow_mut();
-                match error.as_mut() {
-                    Some(_) => 1,
-                    None => {
-                        *error = Some(XLibError::from_event(err));
-                        0
+                CURRENT_X11_ERROR.with(|error| {
+                    let mut error = error.borrow_mut();
+                    match error.as_mut() {
+                        Some(_) => 1,
+                        None => {
+                            *error = Some(XLibError::from_event(err));
+                            0
+                        }
                     }
-                }
-            })
+                })
+            }
         }
 
         unsafe {
@@ -103,16 +105,18 @@ impl XLibError {
     /// # Safety
     /// The display pointer inside error must be valid for the duration of this call
     unsafe fn from_event(error: &xlib::XErrorEvent) -> Self {
-        Self {
-            type_: error.type_,
-            resourceid: error.resourceid,
-            serial: error.serial,
+        unsafe {
+            Self {
+                type_: error.type_,
+                resourceid: error.resourceid,
+                serial: error.serial,
 
-            error_code: error.error_code,
-            request_code: error.request_code,
-            minor_code: error.minor_code,
+                error_code: error.error_code,
+                request_code: error.request_code,
+                minor_code: error.minor_code,
 
-            display_name: Self::get_display_name(error),
+                display_name: Self::get_display_name(error),
+            }
         }
     }
 
@@ -153,7 +157,7 @@ impl Debug for XLibError {
 
 impl Display for XLibError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "XLib error: {} (error code {})", &self.display_name, self.error_code)
+        write!(f, "XLib error: {} (error code {})", self.display_name, self.error_code)
     }
 }
 

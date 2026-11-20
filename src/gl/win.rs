@@ -78,7 +78,7 @@ impl GlContext {
             return Err(GlError::InvalidWindowHandle);
         }
 
-        let class_name_str = format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().to_simple());
+        let class_name_str = format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().simple());
         let mut class_name: Vec<WCHAR> = OsStr::new(&class_name_str).encode_wide().collect();
         class_name.push(0);
 
